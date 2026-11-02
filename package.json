@@ -1,1 +1,11 @@
-{"name":"realityloop-ai-landing","private":true,"type":"module","scripts":{"test":"node tests/model.test.mjs"}}
+{
+  "name": "realityloop-ai",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/model.test.mjs",
+    "test:backend": "node tests/run-backend-tests.mjs",
+    "build:frontend": "npm --prefix frontend run build",
+    "dev:frontend": "npm --prefix frontend run dev"
+  }
+}
