@@ -14,6 +14,7 @@ from app.db.migrations.versions import v0007_device_ingestion
 from app.db.migrations.versions import v0008_simulation_runs
 from app.db.migrations.versions import v0009_dashboards
 from app.db.migrations.versions import v0012_scenarios
+from app.db.migrations.versions import v0013_photo_line_analysis
 
 MIGRATIONS = (
     v0001_identity_foundation,
@@ -26,6 +27,7 @@ MIGRATIONS = (
     v0008_simulation_runs,
     v0009_dashboards,
     v0012_scenarios,
+    v0013_photo_line_analysis,
 )
 
 

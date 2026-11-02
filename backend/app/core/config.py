@@ -65,6 +65,15 @@ class Settings(BaseSettings):
     scenario_max_scenarios: int = Field(default=50, gt=0, le=500)
     scenario_solver_max_seconds: int = Field(default=30, gt=0, le=300)
     scenario_solver_max_candidates: int = Field(default=50, gt=0, le=1_000)
+    gemini_api_key: str = Field(default="", validation_alias="GEMINI_API_KEY")
+    gemini_model: str = Field(default="gemini-2.0-flash", validation_alias="GEMINI_MODEL")
+    photo_max_images: int = Field(default=6, gt=0, le=20)
+    photo_max_image_bytes: int = Field(default=8 * 1024 * 1024, gt=0, le=25 * 1024 * 1024)
+    photo_max_pixels: int = Field(default=12_000_000, gt=0, le=40_000_000)
+    photo_max_jobs_per_org: int = Field(default=50, gt=0, le=500)
+    photo_job_timeout_seconds: int = Field(default=90, gt=0, le=600)
+    photo_job_max_retries: int = Field(default=2, ge=0, le=5)
+    photo_retention_days: int = Field(default=30, gt=0, le=365)
     session_cookie_name: str = "rl_session"
     csrf_cookie_name: str = "rl_csrf"
     session_ttl_seconds: int = Field(default=60 * 60 * 12, gt=0)
