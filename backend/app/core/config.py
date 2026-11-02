@@ -29,6 +29,29 @@ class Settings(BaseSettings):
     s3_bucket: str = Field(default="", validation_alias="S3_BUCKET")
     s3_access_key_id: str = Field(default="", validation_alias="S3_ACCESS_KEY_ID")
     s3_secret_access_key: str = Field(default="", validation_alias="S3_SECRET_ACCESS_KEY")
+    sensor_import_max_file_bytes: int = Field(default=10 * 1024 * 1024, gt=0, le=100 * 1024 * 1024)
+    sensor_import_max_rows: int = Field(default=50_000, gt=0, le=1_000_000)
+    sensor_import_preview_rows: int = Field(default=25, gt=0, le=100)
+    sensor_import_batch_size: int = Field(default=250, gt=0, le=2_000)
+    sensor_import_error_url_ttl_seconds: int = Field(default=300, gt=0, le=900)
+    device_batch_max_readings: int = Field(default=500, gt=0, le=5_000)
+    device_batch_max_bytes: int = Field(default=256 * 1024, gt=0, le=5 * 1024 * 1024)
+    device_future_tolerance_seconds: int = Field(default=300, ge=0, le=86_400)
+    sensor_stale_multiplier: float = Field(default=3, gt=0, le=100)
+    mqtt_enabled: bool = False
+    mqtt_broker_url: str = ""
+    mqtt_ca_file: str = ""
+    mqtt_client_cert_file: str = ""
+    mqtt_client_key_file: str = ""
+    mqtt_username: str = ""
+    mqtt_password: str = ""
+    mqtt_queue_capacity: int = Field(default=1_000, gt=0, le=100_000)
+    mqtt_message_max_bytes: int = Field(default=64 * 1024, gt=0, le=1024 * 1024)
+    edge_buffer_max_rows: int = Field(default=100_000, gt=0, le=1_000_000)
+    edge_batch_max_readings: int = Field(default=100, gt=0, le=5_000)
+    edge_batch_max_bytes: int = Field(default=128 * 1024, gt=0, le=5 * 1024 * 1024)
+    edge_retry_base_seconds: float = Field(default=1, gt=0, le=300)
+    edge_retry_max_seconds: float = Field(default=60, gt=0, le=3600)
     session_cookie_name: str = "rl_session"
     csrf_cookie_name: str = "rl_csrf"
     session_ttl_seconds: int = Field(default=60 * 60 * 12, gt=0)
@@ -58,6 +81,15 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def production_requires_secure_configuration(self) -> "Settings":
+        if self.mqtt_enabled:
+            if not self.mqtt_broker_url.startswith("mqtts://"):
+                raise ValueError("MQTT_BROKER_URL must use mqtts:// when MQTT is enabled.")
+            if bool(self.mqtt_client_cert_file) != bool(self.mqtt_client_key_file):
+                raise ValueError(
+                    "MQTT_CLIENT_CERT_FILE and MQTT_CLIENT_KEY_FILE must be configured together."
+                )
+            if bool(self.mqtt_username) != bool(self.mqtt_password):
+                raise ValueError("MQTT_USERNAME and MQTT_PASSWORD must be configured together.")
         if self.environment.lower() in {"production", "preview"}:
             if not self.cookie_secure:
                 raise ValueError("COOKIE_SECURE must be enabled in production.")

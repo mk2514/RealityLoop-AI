@@ -10,8 +10,14 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.routes.assets import router as assets_router
 from app.api.routes.auth import router as auth_router
+from app.api.routes.device_credentials import router as device_credentials_router
 from app.api.routes.health import router as health_router
 from app.api.routes.line_models import router as line_models_router
+from app.api.routes.sensor_imports import router as sensor_imports_router
+from app.api.routes.telemetry import (
+    device_router as device_telemetry_router,
+    session_router as session_telemetry_router,
+)
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.client import close_mongo_client
@@ -32,12 +38,24 @@ app.add_middleware(
     allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allow_headers=["Accept", "Content-Type", "X-CSRF-Token", "X-Request-ID"],
+    allow_headers=[
+        "Accept",
+        "Content-Type",
+        "X-CSRF-Token",
+        "X-Request-ID",
+        "X-Import-Mapping",
+        "X-File-Name",
+        "Authorization",
+    ],
 )
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(assets_router, prefix="/api/v1")
 app.include_router(line_models_router, prefix="/api/v1")
+app.include_router(sensor_imports_router, prefix="/api/v1")
+app.include_router(device_credentials_router, prefix="/api/v1")
+app.include_router(session_telemetry_router, prefix="/api/v1")
+app.include_router(device_telemetry_router, prefix="/api/v1")
 
 
 @app.middleware("http")

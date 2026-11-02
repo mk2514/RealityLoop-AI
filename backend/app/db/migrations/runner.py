@@ -9,6 +9,8 @@ from app.db.migrations.versions import v0003_factory_assets
 from app.db.migrations.versions import v0004_production_line_models
 
 from app.db.migrations.versions import v0005_rate_windows
+from app.db.migrations.versions import v0006_sensor_readings
+from app.db.migrations.versions import v0007_device_ingestion
 
 MIGRATIONS = (
     v0001_identity_foundation,
@@ -16,6 +18,8 @@ MIGRATIONS = (
     v0003_factory_assets,
     v0004_production_line_models,
     v0005_rate_windows,
+    v0006_sensor_readings,
+    v0007_device_ingestion,
 )
 
 

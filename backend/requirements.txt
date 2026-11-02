@@ -4,6 +4,8 @@ fastapi==0.115.14
 email-validator==2.2.0
 pwdlib[argon2]==0.2.1
 pydantic-settings==2.10.1
+paho-mqtt==2.1.0
 pymongo==4.13.2
 redis==5.2.1
+asyncua==1.1.5
 uvicorn[standard]==0.34.3

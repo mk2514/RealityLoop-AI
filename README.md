@@ -23,14 +23,15 @@ The public landing page and browser-local sample demo are separate from signed-i
 - Organization-isolated factory, line, machine, component and sensor registry with audit history.
 - Persistent production-line editor with validation, immutable snapshots and optimistic concurrency.
 - Saved-version 3D review with template geometry, synchronized selection and an accessible schematic fallback without WebGL. Material paths are illustrative, not simulated job movement.
+- Private, organization-scoped historical sensor CSV imports with bounded preview/mapping, private S3-compatible file retention, a Redis/Celery worker, normalized readings, idempotent event keys and row-level rejection reports.
 - MongoDB collection validators and explicit, idempotent migrations.
 - One frontend at `/` and `/app`, deployable as a single Vercel static project. The backend remains a separate service for a later deployment step.
 
-Equipment templates are descriptive only. Live machine integration, telemetry ingestion, production simulation, forecasts and validated equipment physics are not implemented yet.
+Equipment templates are descriptive only. Historical sensor CSV imports are available for registered sensors; live device ingestion, production simulation, forecasts and validated equipment physics are not implemented yet.
 
 ## Local development
 
-No Docker or Vercel CLI is required to run the frontend or browser-local landing demo. Start the unified Vite app from the repository root:
+No Docker or Vercel CLI is used. Start the unified frontend and browser-local landing demo from the repository root:
 
 ```sh
 npm --prefix frontend ci
@@ -39,23 +40,118 @@ npm run dev:frontend
 
 Open `http://localhost:5173`. The landing page, public sample and application routes all run through this one frontend server. The Vite proxy keeps `/api/v1` pointed at `http://127.0.0.1:8001`; backend-dependent actions show an unavailable-service message if FastAPI is not running. `VITE_API_BASE_URL` is optional and defaults to the local proxy path.
 
-To exercise the backend locally, configure its services in a root `.env` copied from `.env.example`. MongoDB must support transactions. For local email testing, run the standalone [Mailpit binary](https://mailpit.axllent.org/docs/install/); its defaults match the example SMTP configuration. Install and start the backend separately:
+### Local integration smoke test (no containers)
+
+The backend smoke test uses services installed or already running on the host: a MongoDB replica set, Redis-compatible broker, Mailpit SMTP sink, and local S3-compatible storage such as MinIO. The smoke runner rejects non-loopback service hosts to avoid writing test records to a remote or production environment.
+
+1. Copy `.env.example` to `.env`. Keep the local values for MongoDB, Redis, SMTP, S3 and `PUBLIC_APP_URL`; the local MongoDB must be initialized as replica set `rs0`. The sample MongoDB URI is unauthenticated for local development only, so bind it and all other local services to loopback and never reuse it in production.
+2. Start a single-node MongoDB replica set:
+
+   ```powershell
+   New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\RealityLoop\mongodb"
+   mongod --dbpath "$env:LOCALAPPDATA\RealityLoop\mongodb" --replSet rs0 --bind_ip 127.0.0.1 --port 27017
+   ```
+
+   In another terminal, initialize it once and wait for a primary:
+
+   ```powershell
+   mongosh --host 127.0.0.1:27017 --eval "try { rs.status() } catch { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: '127.0.0.1:27017' }] }) }"
+   mongosh --quiet --host 127.0.0.1:27017 --eval "db.hello().isWritablePrimary"
+   ```
+
+3. In separate terminals, start local Redis-compatible service on `127.0.0.1:6379` (for example, Redis in WSL or a Windows-compatible Redis service), Mailpit, and MinIO. Mailpit's standalone binary is available from its [official installation guide](https://mailpit.axllent.org/docs/install/):
+
+   ```powershell
+   # Redis terminal (or use a Windows-compatible Redis service):
+   wsl --exec redis-server --bind 127.0.0.1 --port 6379
+   ```
+
+   ```powershell
+   # Mailpit terminal:
+   mailpit --listen 127.0.0.1:8025 --smtp 127.0.0.1:1025
+   ```
+
+   Use MinIO's standalone server binary (not a container), with root credentials matching `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` in the ignored `.env`:
+
+   ```powershell
+   New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\RealityLoop\minio"
+   $env:MINIO_ROOT_USER = "realityloop-local"
+   $env:MINIO_ROOT_PASSWORD = "replace-with-a-local-minio-secret"
+   minio.exe server "$env:LOCALAPPDATA\RealityLoop\minio" --address 127.0.0.1:9000 --console-address 127.0.0.1:9001
+   ```
+
+   These are local-only placeholders; change the username/password in both the process environment and `.env` together. Mailpit's standalone binary is available from its [official installation guide](https://mailpit.axllent.org/docs/install/).
+4. Create the local bucket once using the MinIO client (install `mc` separately):
+
+   ```powershell
+   mc alias set local http://127.0.0.1:9000 $env:S3_ACCESS_KEY_ID $env:S3_SECRET_ACCESS_KEY
+   mc mb --ignore-existing local/realityloop-local
+   ```
+
+   Set those two PowerShell environment variables to the same local-only values as `.env` before running the commands:
+
+   ```powershell
+   $env:S3_ACCESS_KEY_ID = "realityloop-local"
+   $env:S3_SECRET_ACCESS_KEY = "replace-with-a-local-minio-secret"
+   ```
+
+   Alternatively, create the bucket in MinIO's console at `http://127.0.0.1:9001`.
+5. Install the backend and browser-test dependencies, then run the integration gate:
+
+   ```powershell
+   py -3 -m venv .venv
+   .\.venv\Scripts\python.exe -m pip install -r backend\requirements-dev.lock
+   npm --prefix frontend ci
+   npm --prefix frontend exec -- playwright install chromium
+   npm run smoke:local
+   ```
+
+The runner applies migrations twice and requires the second run to be a no-op, starts FastAPI, a solo Celery worker and Vite, checks all API readiness dependencies, submits a Celery task, then runs the browser journey. The browser test registers and verifies two independent organizations through Mailpit, rejects verification-token reuse, signs in, creates a factory/line/machine/component/sensor and valid immutable line snapshot, opens its 3D review with WebGL deliberately disabled, and asserts guessed cross-organization asset/version IDs return 404. It also verifies logout revokes the session and the protected dashboard API returns 401. The test data remains in the local MongoDB database with unique names; do not point this smoke test at shared or production services.
+
+To run backend unit tests without those services:
 
 ```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r backend\requirements-dev.lock
-$env:PYTHONPATH = "$PWD\backend"
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8001
-```
-
-Run database migrations explicitly from the repository root, using the same `.env`:
-
-```powershell
-$env:PYTHONPATH = "$PWD\backend"
-.\.venv\Scripts\python.exe -m app.db.migrations.runner
+npm run test:backend
 ```
 
 Migrations are idempotent and do not run automatically during startup or deployment.
+
+### Historical sensor imports
+
+The private import workflow is available in `/app` after selecting a sensor in
+the Factory Registry. It requires the API, Redis-backed Celery worker, MongoDB
+transactions, and a private S3-compatible bucket. Use the `SENSOR_IMPORT_*`
+limits in `.env.example`; upload errors are shown in the UI and rejected rows
+are available as an organization-authorized, short-lived signed download.
+Reading normalization, event-key semantics, status behavior, limits, and
+local verification are documented in
+[`docs/SENSOR_IMPORTS.md`](./docs/SENSOR_IMPORTS.md).
+
+For a local API and worker, configure the local dependencies from the setup
+above, then run these from the repository root in separate PowerShell
+terminals:
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path .\backend).Path
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+```
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path .\backend).Path
+.\.venv\Scripts\python.exe -m celery -A app.worker.celery_app:celery_app worker --loglevel=INFO --pool=solo
+```
+
+The worker and API must use the same `REDIS_URL`, MongoDB database and private
+storage bucket. No Docker or production deployment is part of this workflow.
+
+### Separate staging connectivity check
+
+This procedure is separate from the local smoke test and requires already-provisioned staging services; it does not deploy or provision anything.
+
+1. Use HTTPS custom domains on the same registrable domain, such as `app.example.com` (Vercel) and `api.example.com` (Render). The default `*.vercel.app` and `*.onrender.com` domains are cross-site and are not supported for the current `SameSite=Strict` session flow.
+2. Set Render `FRONTEND_ORIGINS=https://app.example.com`, `PUBLIC_APP_URL=https://app.example.com`, and `COOKIE_SECURE=true`; set Vercel's build-time `VITE_API_BASE_URL=https://api.example.com/api/v1` and rebuild.
+3. In browser devtools, verify the API's credentialed CORS response allows only the exact frontend origin, includes `Access-Control-Allow-Credentials: true`, and permits `X-CSRF-Token`. Verify login issues an HttpOnly, Secure, SameSite=Strict session cookie; browser requests with credentials can reach the protected dashboard; and a mutation without the CSRF token is rejected. Do not expect browser JavaScript to read the session cookie.
+4. Register a second staging organization and confirm guessed IDs from the first organization receive denial. Do not use real production accounts or telemetry for this check.
 
 ## Vercel frontend deployment (current step)
 

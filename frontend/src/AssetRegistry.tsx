@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, apiRequest } from "./api";
 import { LineModelEditor } from "./LineModelEditor";
+import { SensorImports } from "./SensorImports";
 
 type RegistryAsset = {
   id: string;
@@ -503,6 +504,7 @@ export function AssetRegistry({
   const [lineId, setLineId] = useState<string | null>(null);
   const [machineId, setMachineId] = useState<string | null>(null);
   const [componentId, setComponentId] = useState<string | null>(null);
+  const [sensorId, setSensorId] = useState<string | null>(null);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -514,6 +516,7 @@ export function AssetRegistry({
   const activeLine = lines.find((item) => item.id === lineId);
   const activeMachine = machines.find((item) => item.id === machineId);
   const activeComponent = components.find((item) => item.id === componentId);
+  const activeSensor = sensors.find((item) => item.id === sensorId);
 
   async function loadFactories() {
     const result = await apiRequest<{ factories: Factory[] }>("/factories?include_archived=true");
@@ -567,6 +570,7 @@ export function AssetRegistry({
     setComponents([]);
     setComponentId(null);
     setSensors([]);
+    setSensorId(null);
     if (!factoryId) return () => { active = false; };
     loadChildren(`/factories/${encodeURIComponent(factoryId)}/lines`, "lines")
       .then((records) => {
@@ -589,6 +593,7 @@ export function AssetRegistry({
     setComponents([]);
     setComponentId(null);
     setSensors([]);
+    setSensorId(null);
     if (!lineId) return () => { active = false; };
     loadChildren(`/lines/${encodeURIComponent(lineId)}/machines`, "machines")
       .then((records) => {
@@ -609,6 +614,7 @@ export function AssetRegistry({
     setComponents([]);
     setComponentId(null);
     setSensors([]);
+    setSensorId(null);
     if (!machineId) return () => { active = false; };
     loadChildren(`/machines/${encodeURIComponent(machineId)}/components`, "components")
       .then((records) => {
@@ -627,10 +633,14 @@ export function AssetRegistry({
   useEffect(() => {
     let active = true;
     setSensors([]);
+    setSensorId(null);
     if (!componentId) return () => { active = false; };
     loadChildren(`/components/${encodeURIComponent(componentId)}/sensors`, "sensors")
       .then((records) => {
-        if (active) setSensors(records);
+        if (active) {
+          setSensors(records);
+          setSensorId(records.find((record) => !record.archived_at)?.id ?? records[0]?.id ?? null);
+        }
       })
       .catch((reason: unknown) => {
         if (active) setError(getErrorMessage(reason));
@@ -664,7 +674,9 @@ export function AssetRegistry({
       return;
     }
     if (kind === "sensor" && componentId) {
-      setSensors(await loadChildren(`/components/${componentId}/sensors`, "sensors"));
+      const records = await loadChildren(`/components/${componentId}/sensors`, "sensors");
+      setSensors(records);
+      if (parentId) setSensorId(parentId);
     }
   }
 
@@ -719,6 +731,7 @@ export function AssetRegistry({
       if (kind === "line" && !reopen && lineId === record.id) setLineId(null);
       if (kind === "machine" && !reopen && machineId === record.id) setMachineId(null);
       if (kind === "component" && !reopen && componentId === record.id) setComponentId(null);
+      setSensorId(null);
       setNotice(reopen ? "Asset reopened." : "Asset archived.");
       onChanged();
     } catch (reason) {
@@ -834,9 +847,12 @@ export function AssetRegistry({
             onCreate={() => componentId && setEditor({ kind: "sensor", record: null, parentId: componentId })}
             onEdit={(record) => setEditor({ kind: "sensor", record })}
             onReopen={(record) => void changeLifecycle("sensor", record, true)}
-            onSelect={(record) => setNotice(`${record.name}: ${String(record.measurement_type ?? "sensor")} / ${String(record.unit ?? "")}; expected every ${String(record.expected_reporting_interval_seconds ?? "")}s.`)}
+            onSelect={(record) => {
+              setSensorId(record.id);
+              setNotice(`${record.name}: ${String(record.measurement_type ?? "sensor")} / ${String(record.unit ?? "")}; expected every ${String(record.expected_reporting_interval_seconds ?? "")}s.`);
+            }}
             records={sensors}
-            selectedId={null}
+            selectedId={sensorId}
             title="SENSORS"
           />
         </div>
@@ -891,6 +907,16 @@ export function AssetRegistry({
             />
           )}
         </section>
+      )}
+      {activeSensor && sensorId && (
+        <SensorImports
+          active={!activeSensor.archived_at}
+          canEdit={canEdit && !activeSensor.archived_at}
+          measurementType={String(activeSensor.measurement_type ?? "custom")}
+          registeredUnit={String(activeSensor.unit ?? "")}
+          sensorId={sensorId}
+          sensorName={activeSensor.name}
+        />
       )}
       <p className="mt-5 text-xs leading-relaxed text-ink/60">
         Archiving preserves records and audit history. Equipment templates are metadata suggestions, not validated physics or production models.

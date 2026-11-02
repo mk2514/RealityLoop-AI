@@ -1,0 +1,13 @@
+{
+  "total": 8,
+  "inserted": 1,
+  "duplicates": 2,
+  "rejected": 5,
+  "rejected_by_code": {
+    "MALFORMED_ROW": 1,
+    "UNKNOWN_SENSOR": 1,
+    "BAD_TIMESTAMP": 1,
+    "NON_NUMERIC_VALUE": 1,
+    "INCOMPATIBLE_UNIT": 1
+  }
+}

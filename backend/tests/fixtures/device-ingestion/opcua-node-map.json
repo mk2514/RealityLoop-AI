@@ -1,0 +1,9 @@
+[
+  {
+    "node_id": "ns=2;s=Line1.MotorCurrent",
+    "sensor_id": "0123456789abcdef01234567",
+    "unit": "A",
+    "scale": 1.0,
+    "offset": 0.0
+  }
+]

@@ -1,0 +1,9 @@
+timestamp,reading,unit,sensor,source_event_id
+2025-01-15T10:00:00Z,20,C,SENSOR-A,first-event
+2025-01-15T10:00:00Z,25,C,SENSOR-A,first-event
+2025-01-15T11:00:00Z,30,C,SENSOR-A,existing-event
+2025-01-15T12:00:00Z,31,C,SENSOR-A
+2025-01-15T13:00:00Z,32,C,UNKNOWN-SENSOR,unknown-event
+not-a-date,33,C,SENSOR-A,bad-time
+2025-01-15T14:00:00Z,not-numeric,C,SENSOR-A,bad-value
+2025-01-15T15:00:00Z,34,kg,SENSOR-A,bad-unit

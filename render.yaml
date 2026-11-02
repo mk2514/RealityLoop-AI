@@ -11,3 +11,12 @@ services:
       - fromGroup: realityloop-production
       - key: MONGO_ONLY_INFRA
         value: "true"
+  - type: worker
+    name: realityloop-worker
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.lock
+    startCommand: python -m celery -A app.worker.celery_app:celery_app worker --loglevel=INFO --concurrency=2
+    envVars:
+      - fromGroup: realityloop-production

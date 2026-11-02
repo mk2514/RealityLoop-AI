@@ -1,0 +1,12 @@
+{
+  "readings": [
+    {
+      "sensor_id": "0123456789abcdef01234567",
+      "value": 21.5,
+      "unit": "C",
+      "event_time_utc": "2025-01-15T10:00:00Z",
+      "sequence": 82,
+      "quality": "good"
+    }
+  ]
+}
