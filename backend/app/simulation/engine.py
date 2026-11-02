@@ -70,6 +70,14 @@ def validate_snapshot(snapshot: dict[str, Any], settings: Any = None) -> list[di
     machine_parameters = snapshot.get("resolved_machine_parameters", {})
     for node in nodes:
         if node.get("type") == "machine":
+            resource_quantity = node.get("resource_quantity", 1)
+            if not isinstance(resource_quantity, int) or resource_quantity < 1 or resource_quantity > 1000:
+                errors.append(_error(
+                    "invalid_resource_quantity",
+                    f"layout.nodes.{node.get('id')}.resource_quantity",
+                    "Parallel resource quantity must be a positive integer.",
+                    "Set resource_quantity to an integer from 1 through 1000.",
+                ))
             machine_id = node.get("machine_id")
             resolved = machine_parameters.get(machine_id, {})
             if resolved.get("nominal_cycle_time_seconds") is None:
@@ -217,7 +225,10 @@ def simulate(snapshot: dict[str, Any], settings: Any = None) -> dict[str, Any]:
         if node["type"] == "machine"
     }
     for node_id in machine_nodes:
-        resources[node_id] = simpy.Resource(env, capacity=1)
+        resources[node_id] = simpy.Resource(
+            env,
+            capacity=int(machine_nodes[node_id].get("resource_quantity", 1)),
+        )
         station_busy[node_id] = 0.0
         station_blocked[node_id] = 0.0
         station_idle[node_id] = horizon

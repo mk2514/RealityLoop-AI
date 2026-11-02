@@ -1,5 +1,22 @@
 # Build progress
 
+## Layer 12 — Organization-scoped scenario comparison (implemented, acceptance verification in progress)
+
+### Completed
+
+- Added organization-scoped scenario forks, immutable baseline/candidate snapshots, chaos profiles and paired scenario comparisons using the existing pinned SimPy engine.
+- Added parallel-equipment resource quantities and bounded candidate/resource validation.
+- Added scenario, scenario run, comparison and chaos-profile MongoDB migrations and indexes.
+- Wired the scenario workspace into `/app/dashboard`; all values are labeled as simulated and expose seed, replications, confidence interval and bottleneck output.
+- Candidate changes send no machine commands and do not alter live factory or line documents.
+
+### Verification
+
+- Frontend Vite/TypeScript production build passed.
+- Backend regression suite passed 57 tests after migration registration.
+- Layer 12 focused scenario and routing validation assertions were added; run them before the acceptance gate.
+- Managed MongoDB, live server-side cross-organization HTTP access, browser rendering and provider deployment credentials remain unverified.
+
 ## Layer 9 — Machine and sensor dashboards (in progress)
 
 ### Completed

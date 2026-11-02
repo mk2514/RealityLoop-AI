@@ -16,6 +16,7 @@ from app.api.routes.line_models import router as line_models_router
 from app.api.routes.sensor_imports import router as sensor_imports_router
 from app.api.routes.simulation_runs import router as simulation_runs_router
 from app.api.routes.dashboards import router as dashboards_router
+from app.api.routes.scenarios import router as scenarios_router
 from app.api.routes.telemetry import (
     device_router as device_telemetry_router,
     session_router as session_telemetry_router,
@@ -60,6 +61,7 @@ app.include_router(session_telemetry_router, prefix="/api/v1")
 app.include_router(device_telemetry_router, prefix="/api/v1")
 app.include_router(simulation_runs_router, prefix="/api/v1")
 app.include_router(dashboards_router, prefix="/api/v1")
+app.include_router(scenarios_router, prefix="/api/v1")
 
 
 @app.middleware("http")

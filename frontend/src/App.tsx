@@ -8,6 +8,9 @@ import { SimulationRuns } from "./SimulationRuns";
 const DashboardCharts = lazy(() =>
   import("./DashboardCharts").then((module) => ({ default: module.DashboardCharts })),
 );
+const ScenarioWorkspace = lazy(() =>
+  import("./ScenarioWorkspace").then((module) => ({ default: module.ScenarioWorkspace })),
+);
 
 type OrganizationInfo = { id: string; name: string; slug: string; role: string };
 type DashboardData = {
@@ -406,6 +409,9 @@ function DashboardPage() {
               />
               <Suspense fallback={<p className="font-mono text-sm">LOADING OBSERVED DATA…</p>}>
                 <DashboardCharts />
+              </Suspense>
+              <Suspense fallback={<p className="font-mono text-sm">LOADING SCENARIOS…</p>}>
+                <ScenarioWorkspace />
               </Suspense>
               <SimulationRuns />
 

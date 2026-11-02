@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     dashboard_raw_max_rows: int = Field(default=5_000, gt=0, le=100_000)
     dashboard_max_buckets: int = Field(default=1_000, gt=0, le=10_000)
     dashboard_export_max_rows: int = Field(default=10_000, gt=0, le=100_000)
+    scenario_max_candidates: int = Field(default=20, gt=0, le=100)
+    scenario_max_replications: int = Field(default=100, gt=0, le=1_000)
+    scenario_max_scenarios: int = Field(default=50, gt=0, le=500)
+    scenario_solver_max_seconds: int = Field(default=30, gt=0, le=300)
+    scenario_solver_max_candidates: int = Field(default=50, gt=0, le=1_000)
     session_cookie_name: str = "rl_session"
     csrf_cookie_name: str = "rl_csrf"
     session_ttl_seconds: int = Field(default=60 * 60 * 12, gt=0)

@@ -7,6 +7,11 @@ from app.simulation.engine import (
     simulate,
     validate_snapshot,
 )
+from app.api.routes.scenarios import (
+    Delta,
+    _derived_seed,
+    apply_delta,
+)
 
 
 def deterministic_snapshot() -> dict:
@@ -106,3 +111,37 @@ def test_snapshot_is_pinned_and_validation_is_actionable() -> None:
     with pytest.raises(SimulationValidationError) as raised:
         simulate(invalid)
     assert raised.value.errors
+
+
+def test_scenario_parallel_delta_and_routing_validation() -> None:
+    snapshot = deterministic_snapshot()
+    candidate, errors = apply_delta(
+        snapshot,
+        Delta(type="parallel_equipment", station_id="machine-a", resource_quantity=3),
+    )
+    assert errors == []
+    machine = candidate["model"]["layout"]["nodes"][1]
+    assert machine["resource_quantity"] == 3
+
+    _, errors = apply_delta(
+        snapshot,
+        Delta(
+            type="routing",
+            operation="add",
+            edge={"source": "machine-a", "target": "missing-station"},
+        ),
+    )
+    assert any(error["code"] == "routing_to_missing_station" for error in errors)
+
+
+def test_paired_replication_seed_is_deterministic() -> None:
+    assert _derived_seed("comparison-1", "candidate-a", 2) == _derived_seed(
+        "comparison-1",
+        "candidate-a",
+        2,
+    )
+    assert _derived_seed("comparison-1", "candidate-a", 2) != _derived_seed(
+        "comparison-1",
+        "candidate-b",
+        2,
+    )
