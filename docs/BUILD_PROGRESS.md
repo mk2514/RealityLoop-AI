@@ -60,7 +60,7 @@
 
 ### Verification
 
-- `npm run test:backend` — 35 passed, including migrations, organization isolation, graph persistence, snapshot history, stale-write rejection, routing validation, and readiness checks.
+- `npm run test:backend` — 36 passed, including migrations, organization isolation, graph persistence, snapshot history, stale-write rejection, routing validation, and readiness checks.
 - `npm test` — passed; landing-page model, CSV, and demo regressions.
 - `npm --prefix frontend test` — passed.
 - `npm --prefix frontend run build:vercel` — passed; TypeScript check, production build, and combined landing/application output.
