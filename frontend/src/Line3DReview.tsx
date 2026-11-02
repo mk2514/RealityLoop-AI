@@ -36,7 +36,74 @@ type Props = {
   machines: ReviewMachine[];
   selectedNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
+  replayEvents?: ReplayEvent[];
+  replayRunLabel?: string;
 };
+
+export type ReplayEvent = {
+  sequence: number;
+  time: number;
+  entity_id: string;
+  station: string;
+  event_type: string;
+};
+
+export function ReplayControls({
+  events,
+  runLabel,
+}: {
+  events: ReplayEvent[];
+  runLabel: string;
+}) {
+  const [position, setPosition] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState(1);
+  useEffect(() => {
+    if (!playing || events.length === 0) return;
+    const timer = window.setInterval(() => {
+      setPosition((current) => {
+        if (current >= events.length - 1) {
+          setPlaying(false);
+          return current;
+        }
+        return current + 1;
+      });
+    }, Math.max(50, 250 / speed));
+    return () => window.clearInterval(timer);
+  }, [events.length, playing, speed]);
+  const event = events[position];
+  return (
+    <section className="border border-rule bg-white/40 p-4" aria-label="Simulation replay controls">
+      <p className="line-panel-label">REPLAY · STORED EVENT LOG · {runLabel}</p>
+      {events.length === 0 ? (
+        <p className="mt-3 text-sm text-ink/65">No replay events are stored for this run.</p>
+      ) : (
+        <>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button className="secondary-button" disabled={playing} onClick={() => setPlaying(true)} type="button">PLAY</button>
+            <button className="secondary-button" disabled={!playing} onClick={() => setPlaying(false)} type="button">PAUSE</button>
+            <button className="secondary-button" onClick={() => { setPlaying(false); setPosition(0); }} type="button">RESET</button>
+            <label className="form-field">
+              <span>Speed</span>
+              <select value={speed} onChange={(change) => setSpeed(Number(change.target.value))}>
+                <option value={1}>1×</option>
+                <option value={2}>2×</option>
+                <option value={5}>5×</option>
+              </select>
+            </label>
+          </div>
+          <label className="mt-3 block">
+            <span className="text-xs text-ink/65">EVENT {position + 1} / {events.length}</span>
+            <input className="w-full" type="range" min={0} max={events.length - 1} value={position} onChange={(change) => setPosition(Number(change.target.value))} />
+          </label>
+          <p className="mt-3 font-mono text-xs">
+            T={Number(event?.time ?? 0).toFixed(3)}s · {event?.entity_id} · {event?.station} · {event?.event_type?.replaceAll("_", " ").toUpperCase()}
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
 
 type CameraMode = "isometric" | "top";
 

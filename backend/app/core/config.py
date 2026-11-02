@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     edge_batch_max_bytes: int = Field(default=128 * 1024, gt=0, le=5 * 1024 * 1024)
     edge_retry_base_seconds: float = Field(default=1, gt=0, le=300)
     edge_retry_max_seconds: float = Field(default=60, gt=0, le=3600)
+    simulation_max_time_seconds: float = Field(default=86_400, gt=0, le=31_536_000)
+    simulation_max_events: int = Field(default=100_000, gt=0, le=1_000_000)
+    simulation_max_event_log_bytes: int = Field(default=25 * 1024 * 1024, gt=0, le=100 * 1024 * 1024)
+    simulation_wall_timeout_seconds: int = Field(default=300, gt=0, le=3_600)
     session_cookie_name: str = "rl_session"
     csrf_cookie_name: str = "rl_csrf"
     session_ttl_seconds: int = Field(default=60 * 60 * 12, gt=0)

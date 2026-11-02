@@ -9,7 +9,7 @@ celery_app = Celery(
     "realityloop",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.worker.sensor_imports"],
+    include=["app.worker.sensor_imports", "app.worker.simulation_runs"],
 )
 celery_app.conf.update(
     accept_content=["json"],

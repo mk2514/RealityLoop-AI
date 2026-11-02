@@ -200,3 +200,26 @@ Implement only the next layer requested by the user.
 - Layer 7 device credentials, live REST/MQTT/OPC UA ingestion, durable edge buffering and stale-sensor state have not started; credential-model and protocol-fixture docs will accompany that gated layer.
 - Layer 8 simulation, immutable run pinning and replay have not started; their pinning/event-log documentation will accompany that gated layer.
 - Local interactive imports require configured MongoDB, Redis, worker and private S3-compatible storage. No deployment, hardware integration, machine actuation or Docker environment was introduced.
+
+## Layer 8 — Production simulation and replay
+
+### Completed
+
+- Added migration `0008_simulation_runs` and organization-scoped simulation run/event collections and indexes.
+- Added immutable run snapshot pinning for line models, resolved machine parameters, factory calendar/timezone, recipe/product, assumptions, seed and run limits.
+- Added snapshot validation, SimPy execution, Celery lifecycle/status handling, cancellation checks, retry idempotency, persisted metrics and bounded paginated replay events.
+- Added `/app/dashboard` simulation run controls and a separate stored-event replay mode in the saved-version review.
+- Added deterministic fixture tests and simulation pinning/validation coverage.
+
+### Verification
+
+- Frontend production build passed.
+- Frontend test suite passed 5 tests plus model/CSV checks.
+- Backend suite: 54 passed, 0 failed, including migration `0008`, the deterministic Layer 8 fixture, seed behavior and snapshot pinning validation.
+- Lockfile dev environment regenerated to include pinned SimPy 4.1.1; runtime dependency installation verified.
+- Live Celery/Redis, managed MongoDB, Render worker execution, browser replay rendering and deterministic provider hardware remain unverified.
+
+### Known limitations
+
+- Simulation is limited to the existing deterministic/explicitly declared cycle-time concepts; unsupported distributions and missing routing parameters fail validation.
+- This layer provides replay of stored events and does not issue equipment commands.

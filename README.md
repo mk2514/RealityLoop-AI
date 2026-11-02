@@ -27,7 +27,7 @@ The public landing page and browser-local sample demo are separate from signed-i
 - MongoDB collection validators and explicit, idempotent migrations.
 - One frontend at `/` and `/app`, deployable as a single Vercel static project. The backend remains a separate service for a later deployment step.
 
-Equipment templates are descriptive only. Historical sensor CSV imports are available for registered sensors; live device ingestion, production simulation, forecasts and validated equipment physics are not implemented yet.
+Equipment templates are descriptive only. Historical sensor CSV imports, scoped live device credentials, REST/MQTT/OPC UA fixtures and production simulation/replay foundations are implemented behind configured services; forecasts and validated equipment physics are not assumed.
 
 ## Local development
 

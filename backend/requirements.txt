@@ -9,3 +9,4 @@ pymongo==4.13.2
 redis==5.2.1
 asyncua==1.1.5
 uvicorn[standard]==0.34.3
+simpy==4.1.1

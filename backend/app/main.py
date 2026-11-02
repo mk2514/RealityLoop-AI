@@ -14,6 +14,7 @@ from app.api.routes.device_credentials import router as device_credentials_route
 from app.api.routes.health import router as health_router
 from app.api.routes.line_models import router as line_models_router
 from app.api.routes.sensor_imports import router as sensor_imports_router
+from app.api.routes.simulation_runs import router as simulation_runs_router
 from app.api.routes.telemetry import (
     device_router as device_telemetry_router,
     session_router as session_telemetry_router,
@@ -56,6 +57,7 @@ app.include_router(sensor_imports_router, prefix="/api/v1")
 app.include_router(device_credentials_router, prefix="/api/v1")
 app.include_router(session_telemetry_router, prefix="/api/v1")
 app.include_router(device_telemetry_router, prefix="/api/v1")
+app.include_router(simulation_runs_router, prefix="/api/v1")
 
 
 @app.middleware("http")

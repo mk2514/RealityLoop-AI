@@ -21,11 +21,15 @@ import {
 } from "@xyflow/react";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { ApiError, apiRequest } from "./api";
-import type { ReviewEdge, ReviewMachine, ReviewNode } from "./Line3DReview";
+import type { ReplayEvent, ReviewEdge, ReviewMachine, ReviewNode } from "./Line3DReview";
 
 const Line3DReview = lazy(async () => {
   const module = await import("./Line3DReview");
   return { default: module.Line3DReview };
+});
+const ReplayControls = lazy(async () => {
+  const module = await import("./Line3DReview");
+  return { default: module.ReplayControls };
 });
 
 type NodeKind = "source" | "sink" | "machine" | "buffer";
@@ -310,6 +314,12 @@ function FlowCanvas({
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewError, setReviewError] = useState("");
   const [activeView, setActiveView] = useState<"editor" | "review">("editor");
+  const [replayMode, setReplayMode] = useState(false);
+  const [replayRuns, setReplayRuns] = useState<Array<{run_id: string; status: string; seed: number; line_version: number; created_at: string}>>([]);
+  const [replayRunId, setReplayRunId] = useState("");
+  const [replayEvents, setReplayEvents] = useState<ReplayEvent[]>([]);
+  const [replayLoading, setReplayLoading] = useState(false);
+  const [replayError, setReplayError] = useState("");
   const [motionPaused, setMotionPaused] = useState(false);
   const [components, setComponents] = useState<MachineComponent[]>([]);
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
@@ -384,6 +394,50 @@ function FlowCanvas({
       active = false;
     };
   }, [lineId, reviewVersion]);
+
+  useEffect(() => {
+    if (!replayMode || !lineId) return;
+    let active = true;
+    apiRequest<{ runs: Array<{run_id: string; status: string; seed: number; line_version: number; created_at: string}> }>(
+      `/simulation/runs?line_id=${encodeURIComponent(lineId)}&limit=50`,
+    ).then((result) => {
+      if (active) {
+        const completed = result.runs.filter((run) => run.status === "completed");
+        setReplayRuns(completed);
+        if (!replayRunId && completed.length > 0) setReplayRunId(completed[0].run_id);
+      }
+    }).catch((reason: unknown) => {
+      if (active) setReplayError(errorText(reason));
+    });
+    return () => {
+      active = false;
+    };
+  }, [lineId, replayMode, replayRunId]);
+
+  useEffect(() => {
+    if (!replayMode || !replayRunId) {
+      setReplayEvents([]);
+      return;
+    }
+    let active = true;
+    setReplayLoading(true);
+    setReplayError("");
+    apiRequest<{ events: ReplayEvent[] }>(
+      `/simulation/runs/${encodeURIComponent(replayRunId)}/events?limit=2000`,
+    ).then((result) => {
+      if (active) setReplayEvents(result.events);
+    }).catch((reason: unknown) => {
+      if (active) {
+        setReplayEvents([]);
+        setReplayError(errorText(reason));
+      }
+    }).finally(() => {
+      if (active) setReplayLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [replayMode, replayRunId]);
 
   useEffect(() => {
     void load();
@@ -1133,8 +1187,69 @@ function FlowCanvas({
                 IMMUTABLE SNAPSHOT V{reviewVersion}. Draft edits appear here only after saving a new version.
               </p>
             )}
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button
+                className={replayMode ? "secondary-button" : "text-link"}
+                disabled={!reviewModel}
+                onClick={() => setReplayMode(false)}
+                type="button"
+              >
+                STATIC REVIEW
+              </button>
+              <button
+                className={replayMode ? "text-link" : "secondary-button"}
+                disabled={!reviewModel}
+                onClick={() => setReplayMode(true)}
+                type="button"
+              >
+                STORED REPLAY
+              </button>
+            </div>
+            {replayMode && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <label className="form-field">
+                  <span>Completed simulation run</span>
+                  <select
+                    className="registry-select"
+                    disabled={replayRuns.length === 0}
+                    onChange={(event) => setReplayRunId(event.target.value)}
+                    value={replayRunId}
+                  >
+                    {replayRuns.length === 0 && <option value="">No completed runs</option>}
+                    {replayRuns.map((run) => (
+                      <option key={run.run_id} value={run.run_id}>
+                        {run.run_id.slice(0, 8)} · V{run.line_version} · seed {run.seed} · {new Date(run.created_at).toLocaleString()}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {replayRunId && (
+                  <p className="self-end text-xs text-ink/60">
+                    REPLAY OF RUN {replayRunId.slice(0, 8)} · STORED EVENTS ONLY
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           {reviewError && <p className="line-3d-fallback-message" role="alert">{reviewError}</p>}
+          {replayMode && (
+            <div className="mt-4">
+              {replayLoading ? (
+                <p className="line-review-empty" role="status">Loading stored replay events…</p>
+              ) : replayError ? (
+                <p className="line-3d-fallback-message" role="alert">{replayError}</p>
+              ) : replayRunId ? (
+                <Suspense fallback={<p className="line-review-empty" role="status">Loading replay controls…</p>}>
+                  <ReplayControls
+                    events={replayEvents}
+                    runLabel={`${replayRunId.slice(0, 8)} · VERSION ${reviewVersion}`}
+                  />
+                </Suspense>
+              ) : (
+                <p className="line-review-empty">No completed simulation run is available for replay.</p>
+              )}
+            </div>
+          )}
           {reviewLoading ? (
             <p className="line-review-empty" role="status">Loading saved line version…</p>
           ) : reviewModel ? (

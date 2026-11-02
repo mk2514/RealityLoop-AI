@@ -149,6 +149,8 @@ s3transfer==0.19.3
     # via boto3
 sentinels==1.1.1
     # via mongomock
+simpy==4.1.1
+    # via -r backend/requirements.txt
 six==1.17.0
     # via python-dateutil
 sortedcontainers==2.4.0

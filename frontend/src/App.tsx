@@ -3,6 +3,7 @@ import { ApiError, apiRequest } from "./api";
 import { AssetRegistry } from "./AssetRegistry";
 import { navigate } from "./router";
 import faviconUrl from "./landing/assets/favicon.svg";
+import { SimulationRuns } from "./SimulationRuns";
 
 type OrganizationInfo = { id: string; name: string; slug: string; role: string };
 type DashboardData = {
@@ -399,6 +400,7 @@ function DashboardPage() {
                 onSignOut={logout}
                 role={dashboard.organization.role}
               />
+              <SimulationRuns />
 
               <aside className="border border-rule bg-white/40 p-6" aria-labelledby="onboarding-title">
                 <p className="font-mono text-xs tracking-widest text-ink/60">ONBOARDING</p>
