@@ -1,5 +1,31 @@
 # Build progress
 
+## Twin validation for saved line versions
+
+### Completed
+
+- Added `0014_twin_validations` MongoDB collection and organization-scoped indexes.
+- Added pinned saved-version validation requests for completed simulation runs.
+- Validation pins the simulation snapshot/hash, recipe, product, line-version snapshot, sensor mapping, timezone, independent calibration and observation windows, feed conditions and data-quality rules.
+- Conveyor exit-count validation compares pinned simulated cycle completions with independent observed counter readings.
+- Detection includes cumulative/incremental counters, counter resets, missing intervals, duplicate timestamps, incompatible units and insufficient ground truth.
+- Metrics report sample size, coverage, signed bias (`simulated - observed`), absolute error, units and evidence source.
+- Added the `Validate this twin` workflow to saved-version review with status and metric-specific evidence.
+- Historical validations are immutable records; live asset recalibration or line edits do not alter completed results.
+
+### Verification
+
+- `backend/tests/test_twin_validation.py` passed the hand-calculated conveyor fixture: 15 observed exits, 18 simulated exits, bias 3, absolute error 3.
+- Missing-ground-truth fixture passed as `insufficient_evidence`.
+- Migration and simulation regressions passed: 8 focused tests passed.
+- Frontend TypeScript/Vite production build passed.
+
+### Known limitations
+
+- Cycle-time and queue-wait validation requires station-specific independent observations and is not yet accepted by the conveyor gate.
+- The UI currently supplies exit-count sensor ID and independent windows explicitly; automatic station/feed discovery is not implemented.
+- Live MongoDB, Celery execution, managed object storage, browser rendering and Render/Vercel deployment were not verified with provider credentials.
+
 ## Layer 12 — Organization-scoped scenario comparison (implemented, acceptance verification in progress)
 
 ### Completed

@@ -109,6 +109,25 @@ type ValidationResult = {
   errors: ValidationError[];
   transfer_times: { edge_id: string; seconds: number | null; method: string }[];
 };
+type TwinValidation = {
+  validation_id: string;
+  simulation_run_id: string;
+  status: string;
+  created_at: string;
+  metrics: Record<string, {
+    status: string;
+    sample_size: number;
+    coverage: number;
+    observed_total: number | null;
+    simulated_total: number | null;
+    signed_bias: number | null;
+    absolute_error: number | null;
+    unit: string;
+  }> | null;
+  operating_envelope: Record<string, unknown> | null;
+  evidence: Array<{ code: string; message: string; source: string }> | null;
+  error: { code: string; message: string } | null;
+};
 type VersionSummary = {
   version: number;
   validation: ValidationResult;
@@ -320,6 +339,16 @@ function FlowCanvas({
   const [replayEvents, setReplayEvents] = useState<ReplayEvent[]>([]);
   const [replayLoading, setReplayLoading] = useState(false);
   const [replayError, setReplayError] = useState("");
+  const [twinValidations, setTwinValidations] = useState<TwinValidation[]>([]);
+  const [twinLoading, setTwinLoading] = useState(false);
+  const [twinError, setTwinError] = useState("");
+  const [twinRunId, setTwinRunId] = useState("");
+  const [twinExitSensor, setTwinExitSensor] = useState("");
+  const [twinTimezone, setTwinTimezone] = useState("UTC");
+  const [twinCalibrationStart, setTwinCalibrationStart] = useState("");
+  const [twinCalibrationEnd, setTwinCalibrationEnd] = useState("");
+  const [twinObservationStart, setTwinObservationStart] = useState("");
+  const [twinObservationEnd, setTwinObservationEnd] = useState("");
   const [motionPaused, setMotionPaused] = useState(false);
   const [components, setComponents] = useState<MachineComponent[]>([]);
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
@@ -396,7 +425,26 @@ function FlowCanvas({
   }, [lineId, reviewVersion]);
 
   useEffect(() => {
-    if (!replayMode || !lineId) return;
+    if (!reviewVersion || !lineId) {
+      setTwinValidations([]);
+      return;
+    }
+    let active = true;
+    setTwinLoading(true);
+    apiRequest<{ validations: TwinValidation[] }>(
+      `/lines/${encodeURIComponent(lineId)}/versions/${encodeURIComponent(reviewVersion)}/validations`,
+    ).then((result) => {
+      if (active) setTwinValidations(result.validations);
+    }).catch((reason: unknown) => {
+      if (active) setTwinError(errorText(reason));
+    }).finally(() => {
+      if (active) setTwinLoading(false);
+    });
+    return () => { active = false; };
+  }, [lineId, reviewVersion]);
+
+  useEffect(() => {
+    if (!lineId) return;
     let active = true;
     apiRequest<{ runs: Array<{run_id: string; status: string; seed: number; line_version: number; created_at: string}> }>(
       `/simulation/runs?line_id=${encodeURIComponent(lineId)}&limit=50`,
@@ -438,6 +486,45 @@ function FlowCanvas({
       active = false;
     };
   }, [replayMode, replayRunId]);
+
+  async function createTwinValidation() {
+    if (!twinRunId || !twinExitSensor || !twinCalibrationStart || !twinCalibrationEnd || !twinObservationStart || !twinObservationEnd) {
+      setTwinError("Select a completed simulation and provide calibration and observation windows plus an exit-count sensor.");
+      return;
+    }
+    setTwinLoading(true);
+    setTwinError("");
+    try {
+      await apiRequest<{ validation: TwinValidation }>(
+        `/lines/${encodeURIComponent(lineId)}/versions/${encodeURIComponent(reviewVersion)}/validations`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            simulation_run_id: twinRunId,
+            calibration_window: {
+              start: new Date(twinCalibrationStart).toISOString(),
+              end: new Date(twinCalibrationEnd).toISOString(),
+            },
+            observation_window: {
+              start: new Date(twinObservationStart).toISOString(),
+              end: new Date(twinObservationEnd).toISOString(),
+            },
+            timezone: twinTimezone,
+            feed_conditions: {},
+            sensor_mapping: { exit_count_sensor_id: twinExitSensor },
+          }),
+        },
+      );
+      const result = await apiRequest<{ validations: TwinValidation[] }>(
+        `/lines/${encodeURIComponent(lineId)}/versions/${encodeURIComponent(reviewVersion)}/validations`,
+      );
+      setTwinValidations(result.validations);
+    } catch (reason: unknown) {
+      setTwinError(errorText(reason));
+    } finally {
+      setTwinLoading(false);
+    }
+  }
 
   useEffect(() => {
     void load();
@@ -1187,6 +1274,49 @@ function FlowCanvas({
                 IMMUTABLE SNAPSHOT V{reviewVersion}. Draft edits appear here only after saving a new version.
               </p>
             )}
+            <div className="mt-3 border border-rule bg-white/40 p-3">
+              <p className="font-mono text-xs tracking-widest text-ink/60">TWIN VALIDATION · SAVED VERSION</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <label className="form-field">
+                  <span>Completed simulation</span>
+                  <select className="registry-select" value={twinRunId} onChange={(event) => setTwinRunId(event.target.value)}>
+                    <option value="">Select run</option>
+                    {replayRuns.filter((run) => run.status === "completed" && run.line_version === Number(reviewVersion)).map((run) => (
+                      <option key={run.run_id} value={run.run_id}>{run.run_id.slice(0, 8)} · seed {run.seed}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="form-field"><span>Exit-count sensor ID</span><input value={twinExitSensor} onChange={(event) => setTwinExitSensor(event.target.value)} /></label>
+                <label className="form-field"><span>Timezone</span><input value={twinTimezone} onChange={(event) => setTwinTimezone(event.target.value)} /></label>
+                <label className="form-field"><span>Calibration start</span><input type="datetime-local" value={twinCalibrationStart} onChange={(event) => setTwinCalibrationStart(event.target.value)} /></label>
+                <label className="form-field"><span>Calibration end</span><input type="datetime-local" value={twinCalibrationEnd} onChange={(event) => setTwinCalibrationEnd(event.target.value)} /></label>
+                <label className="form-field"><span>Observation start</span><input type="datetime-local" value={twinObservationStart} onChange={(event) => setTwinObservationStart(event.target.value)} /></label>
+                <label className="form-field"><span>Observation end</span><input type="datetime-local" value={twinObservationEnd} onChange={(event) => setTwinObservationEnd(event.target.value)} /></label>
+                <button className="action-button self-end" disabled={twinLoading || !reviewVersion || replayRuns.length === 0} onClick={() => void createTwinValidation()} type="button">
+                  {twinLoading ? "STARTING…" : "VALIDATE THIS TWIN"}
+                </button>
+              </div>
+              {twinError && <p className="mt-3 text-sm text-red-800" role="alert">{twinError}</p>}
+              <div className="mt-3 divide-y divide-rule">
+                {twinValidations.map((item) => {
+                  const exitMetric = item.metrics?.conveyor_exit_count;
+                  return (
+                    <article className="py-3 text-sm" key={item.validation_id}>
+                      <p className="font-mono text-xs">
+                        {item.validation_id.slice(0, 8)} · {item.status.toUpperCase()}
+                      </p>
+                      {exitMetric ? (
+                        <p className="mt-1">
+                          Exit count: {exitMetric.status} · sample {exitMetric.sample_size} · observed {exitMetric.observed_total ?? "n/a"} ·
+                          simulated {exitMetric.simulated_total ?? "n/a"} · bias {exitMetric.signed_bias ?? "n/a"} · absolute error {exitMetric.absolute_error ?? "n/a"} {exitMetric.unit}
+                        </p>
+                      ) : <p className="mt-1 text-ink/65">Awaiting measured evidence.</p>}
+                      {item.evidence?.map((reason) => <p className="mt-1 text-xs text-ink/65" key={reason.code}>{reason.code}: {reason.message}</p>)}
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <button
                 className={replayMode ? "secondary-button" : "text-link"}

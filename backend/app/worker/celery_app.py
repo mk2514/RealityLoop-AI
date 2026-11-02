@@ -13,6 +13,7 @@ celery_app = Celery(
         "app.worker.sensor_imports",
         "app.worker.simulation_runs",
         "app.worker.photo_analysis",
+        "app.worker.twin_validations",
     ],
 )
 celery_app.conf.update(

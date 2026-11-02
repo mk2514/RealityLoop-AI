@@ -103,12 +103,13 @@ def test_identity_migration_is_versioned_and_repeatable() -> None:
         "0009_dashboards",
         "0012_scenarios",
         "0013_photo_line_analysis",
+        "0014_twin_validations",
     ]
     assert migrate(database) == []
     assert {"organizations", "users", "organization_memberships", "schema_migrations"} <= set(
         database.list_collection_names()
     )
-    assert len(database["schema_migrations"].documents) == 11
+    assert len(database["schema_migrations"].documents) == 12
     assert database.organizations.options["validator"] == initial_migration.COLLECTIONS[
         "organizations"
     ]

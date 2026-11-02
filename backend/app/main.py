@@ -18,6 +18,7 @@ from app.api.routes.simulation_runs import router as simulation_runs_router
 from app.api.routes.dashboards import router as dashboards_router
 from app.api.routes.scenarios import router as scenarios_router
 from app.api.routes.photo_line_analysis import router as photo_line_analysis_router
+from app.api.routes.twin_validations import router as twin_validations_router
 from app.api.routes.telemetry import (
     device_router as device_telemetry_router,
     session_router as session_telemetry_router,
@@ -64,6 +65,7 @@ app.include_router(simulation_runs_router, prefix="/api/v1")
 app.include_router(dashboards_router, prefix="/api/v1")
 app.include_router(scenarios_router, prefix="/api/v1")
 app.include_router(photo_line_analysis_router, prefix="/api/v1")
+app.include_router(twin_validations_router, prefix="/api/v1")
 
 
 @app.middleware("http")

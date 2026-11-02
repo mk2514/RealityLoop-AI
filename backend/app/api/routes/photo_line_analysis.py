@@ -64,9 +64,8 @@ def sanitize_image(content: bytes, settings: Any) -> tuple[bytes, str, int, int]
 
 
 @router.post("/photo-line-jobs")
-@require_roles(*EDIT_ROLES)
 async def create_photo_job(
-    principal: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(require_roles(*EDIT_ROLES)),
     files: list[UploadFile] = File(...),
     line_id: str = Form(default=""),
     consent_confirmed: bool = Form(...),
@@ -187,8 +186,7 @@ async def create_photo_job(
 
 
 @router.get("/photo-line-jobs/{job_id}")
-@require_roles("owner", "administrator", "engineer", "viewer")
-def get_photo_job(job_id: str, principal: Principal = Depends(get_current_principal)) -> dict[str, Any]:
+def get_photo_job(job_id: str, principal: Principal = Depends(require_roles("owner", "administrator", "engineer", "viewer"))) -> dict[str, Any]:
     job = get_database().photo_line_jobs.find_one({
         "_id": _object_id(job_id),
         "organization_id": principal.organization_id,
@@ -199,8 +197,7 @@ def get_photo_job(job_id: str, principal: Principal = Depends(get_current_princi
 
 
 @router.get("/photo-line-jobs/{job_id}/images/{image_id}")
-@require_roles("owner", "administrator", "engineer", "viewer")
-def get_photo_image(job_id: str, image_id: str, principal: Principal = Depends(get_current_principal)) -> dict[str, Any]:
+def get_photo_image(job_id: str, image_id: str, principal: Principal = Depends(require_roles("owner", "administrator", "engineer", "viewer"))) -> dict[str, Any]:
     database = get_database()
     job_object_id = _object_id(job_id)
     job = database.photo_line_jobs.find_one({"_id": job_object_id, "organization_id": principal.organization_id})
@@ -230,8 +227,7 @@ def settings_download_ttl() -> int:
 
 
 @router.delete("/photo-line-jobs/{job_id}")
-@require_roles(*EDIT_ROLES)
-def delete_photo_job(job_id: str, principal: Principal = Depends(get_current_principal)) -> dict[str, Any]:
+def delete_photo_job(job_id: str, principal: Principal = Depends(require_roles(*EDIT_ROLES))) -> dict[str, Any]:
     database = get_database()
     job_object_id = _object_id(job_id)
     job = database.photo_line_jobs.find_one({"_id": job_object_id, "organization_id": principal.organization_id})
