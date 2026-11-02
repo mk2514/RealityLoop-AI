@@ -3,15 +3,11 @@ services:
     name: realityloop-api
     runtime: python
     rootDir: backend
-    plan: starter
+    plan: free
     buildCommand: pip install -r requirements.lock
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/v1/health/live
-
-  - type: worker
-    name: realityloop-worker
-    runtime: python
-    rootDir: backend
-    plan: starter
-    buildCommand: pip install -r requirements.lock
-    startCommand: celery -A app.worker.celery_app:celery_app worker --loglevel=INFO
+    envVars:
+      - fromGroup: realityloop-production
+      - key: MONGO_ONLY_INFRA
+        value: "true"

@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "RealityLoop API"
     environment: str = "development"
+    mongo_only_infra: bool = False
     log_level: str = "INFO"
     mongo_uri: str = Field(default="", validation_alias="MONGO_URI")
     mongo_host: str = "localhost"
@@ -93,9 +94,9 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "Production MongoDB requires an authenticated remote cluster URI."
                 )
-            if not self.redis_url.startswith("rediss://"):
+            if not self.mongo_only_infra and not self.redis_url.startswith("rediss://"):
                 raise ValueError("Production REDIS_URL must use TLS (rediss://).")
-            if not self.s3_bucket or not self.s3_access_key_id or not self.s3_secret_access_key:
+            if not self.mongo_only_infra and not (self.s3_bucket and self.s3_access_key_id and self.s3_secret_access_key):
                 raise ValueError(
                     "Production S3-compatible storage bucket credentials must be configured."
                 )

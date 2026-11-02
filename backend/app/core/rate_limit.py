@@ -1,3 +1,7 @@
+from datetime import UTC, datetime
+from pymongo import ReturnDocument
+from pymongo.errors import PyMongoError
+
 import hashlib
 import logging
 
@@ -6,7 +10,7 @@ from redis import Redis
 from redis.exceptions import RedisError
 
 from app.core.config import get_settings
-from app.db.client import get_redis_client
+from app.db.client import get_database, get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +58,24 @@ def check_request_limit(
     identity: str,
     limit: int,
 ) -> None:
+    settings = get_settings()
+    if settings.mongo_only_infra:
+        window = settings.auth_rate_limit_window_seconds
+        bucket = int(datetime.now(UTC).timestamp()) // window
+        ip = request.client.host if request.client else "unknown"
+        key = rate_limit_key(action, identity, ip)
+        expires = datetime.fromtimestamp((bucket + 1) * window, UTC)
+        try:
+            record = get_database().auth_rate_windows.find_one_and_update(
+                {"_id": f"{key}:{bucket}"},
+                {"$inc": {"count": 1}, "$setOnInsert": {"expires_at": expires}},
+                upsert=True, return_document=ReturnDocument.AFTER,
+            )
+        except PyMongoError:
+            raise HTTPException(status_code=503, detail="Authentication is temporarily unavailable.")
+        if record["count"] > limit:
+            raise HTTPException(status_code=429, detail="Too many attempts.", headers={"Retry-After": str(window)})
+        return
     client = get_redis_client()
     check_rate_limit(
         client,

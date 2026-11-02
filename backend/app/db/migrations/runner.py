@@ -8,11 +8,14 @@ from app.db.migrations.versions import v0002_authentication
 from app.db.migrations.versions import v0003_factory_assets
 from app.db.migrations.versions import v0004_production_line_models
 
+from app.db.migrations.versions import v0005_rate_windows
+
 MIGRATIONS = (
     v0001_identity_foundation,
     v0002_authentication,
     v0003_factory_assets,
     v0004_production_line_models,
+    v0005_rate_windows,
 )
 
 

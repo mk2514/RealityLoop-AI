@@ -95,10 +95,10 @@ def check_smtp() -> bool:
 def readiness(request: Request, response: Response) -> dict[str, object]:
     dependencies = {
         "mongodb": check_database(),
-        "redis": check_redis(),
-        "object_storage": check_object_storage(),
         "smtp": check_smtp(),
     }
+    if not get_settings().mongo_only_infra:
+        dependencies.update(redis=check_redis(), object_storage=check_object_storage())
     ready = all(dependencies.values())
     if not ready:
         response.status_code = 503
