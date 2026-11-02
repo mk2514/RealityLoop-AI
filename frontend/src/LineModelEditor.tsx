@@ -19,8 +19,14 @@ import {
   type NodeChange,
   type NodeProps,
 } from "@xyflow/react";
-import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { ApiError, apiRequest } from "./api";
+import type { ReviewEdge, ReviewMachine, ReviewNode } from "./Line3DReview";
+
+const Line3DReview = lazy(async () => {
+  const module = await import("./Line3DReview");
+  return { default: module.Line3DReview };
+});
 
 type NodeKind = "source" | "sink" | "machine" | "buffer";
 type NodeData = {
@@ -69,7 +75,24 @@ type MachineAsset = {
   id: string;
   name: string;
   identity: string;
+  machine_type: string;
+  custom_type_name: string;
   capabilities: string[];
+  manufacturer: string;
+  model: string;
+  nominal_cycle_time_seconds: number;
+  capacity_per_hour: number;
+  operating_state: string;
+  archived_at?: string | null;
+};
+type MachineComponent = {
+  id: string;
+  name: string;
+  identity: string;
+  component_type: string;
+  manufacturer: string;
+  model: string;
+  archived_at?: string | null;
 };
 type ValidationError = {
   code: string;
@@ -282,6 +305,16 @@ function FlowCanvas({
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [versions, setVersions] = useState<VersionSummary[]>([]);
   const [historyVersion, setHistoryVersion] = useState("");
+  const [reviewVersion, setReviewVersion] = useState("");
+  const [reviewModel, setReviewModel] = useState<EditorState | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  const [activeView, setActiveView] = useState<"editor" | "review">("editor");
+  const [motionPaused, setMotionPaused] = useState(false);
+  const [components, setComponents] = useState<MachineComponent[]>([]);
+  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
+  const [assetDetailsError, setAssetDetailsError] = useState("");
+  const [assetDetailsLoading, setAssetDetailsLoading] = useState(false);
   const [operationError, setOperationError] = useState("");
   const history = useRef<{ undo: EditorState[]; redo: EditorState[] }>({ undo: [], redo: [] });
   const dragStart = useRef<EditorState | null>(null);
@@ -306,6 +339,9 @@ function FlowCanvas({
       current.current = loaded;
       onRevisionChange(stored.revision);
       setVersions(versionsResult.versions);
+      setReviewVersion(String(versionsResult.versions[0]?.version ?? ""));
+      setReviewModel(null);
+      setReviewError("");
       setValidation(null);
       setStatus("Saved");
       setOperationError("");
@@ -316,6 +352,38 @@ function FlowCanvas({
       setBusy(false);
     }
   }, [lineId, onRevisionChange, onStateChange]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (motionPaused) root.setAttribute("data-motion-paused", "true");
+    else root.removeAttribute("data-motion-paused");
+    return () => root.removeAttribute("data-motion-paused");
+  }, [motionPaused]);
+
+  useEffect(() => {
+    if (!reviewVersion) {
+      setReviewModel(null);
+      return;
+    }
+    let active = true;
+    setReviewLoading(true);
+    setReviewError("");
+    apiRequest<{ model: ServerModel }>(
+      `/lines/${encodeURIComponent(lineId)}/versions/${encodeURIComponent(reviewVersion)}`,
+    ).then((result) => {
+      if (active) setReviewModel(fromServer(result.model));
+    }).catch((reason: unknown) => {
+      if (active) {
+        setReviewModel(null);
+        setReviewError(errorText(reason));
+      }
+    }).finally(() => {
+      if (active) setReviewLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [lineId, reviewVersion]);
 
   useEffect(() => {
     void load();
@@ -533,6 +601,7 @@ function FlowCanvas({
         `/lines/${encodeURIComponent(lineId)}/versions`,
       );
       setVersions(versionsResult.versions);
+      setReviewVersion(String(result.revision));
       setStatus("Saved");
       setOperationError("");
     } catch (reason) {
@@ -602,6 +671,58 @@ function FlowCanvas({
   const selectedEdge = state.edges.find((edge) => edge.id === selectedEdgeId) ?? null;
   const allCapabilities = [...new Set(machines.flatMap((machine) => machine.capabilities))].sort();
   const editable = canEdit && !busy;
+  const reviewNode = reviewModel?.nodes.find((node) => node.id === selectedNodeId) ?? null;
+  const inspectorNode = activeView === "review" ? reviewNode : selectedNode;
+  const selectedMachineId = inspectorNode?.data.machine_id ?? "";
+  const [machineDetails, setMachineDetails] = useState<MachineAsset | null>(null);
+  const selectedMachine = machineDetails?.id === selectedMachineId
+    ? machineDetails
+    : machines.find((machine) => machine.id === selectedMachineId) ?? null;
+  const reviewMachines: ReviewMachine[] = machines;
+  const reviewNodes: ReviewNode[] = (reviewModel?.nodes ?? []).map((node) => ({
+    id: node.id,
+    type: node.type ?? "machine",
+    position: node.position,
+    data: node.data,
+  }));
+  const reviewEdges: ReviewEdge[] = (reviewModel?.edges ?? []).map((edge) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    data: { route_kind: edge.data?.route_kind },
+  }));
+
+  useEffect(() => {
+    setComponents([]);
+    setMachineDetails(null);
+    setSelectedComponentId(null);
+    setAssetDetailsError("");
+    setAssetDetailsLoading(Boolean(selectedMachineId));
+    if (!selectedMachineId) return;
+    let active = true;
+    Promise.all([
+      apiRequest<MachineAsset>(
+        `/machines/${encodeURIComponent(selectedMachineId)}?include_archived=true`,
+      ),
+      apiRequest<{ components: MachineComponent[] }>(
+        `/machines/${encodeURIComponent(selectedMachineId)}/components?include_archived=true`,
+      ),
+    ]).then(([machine, result]) => {
+      if (active) {
+        setMachineDetails(machine);
+        setComponents(result.components);
+      }
+    }).catch((reason: unknown) => {
+      if (active) setAssetDetailsError(errorText(reason));
+    }).finally(() => {
+      if (active) setAssetDetailsLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [selectedMachineId]);
+
+  const selectedComponent = components.find((component) => component.id === selectedComponentId) ?? null;
 
   function addProduct() {
     const product: Product = { id: newId("product"), name: "New product", sku: "" };
@@ -614,15 +735,47 @@ function FlowCanvas({
       <header className="line-editor-header">
         <div>
           <p className="font-mono text-xs tracking-widest text-accent">PRODUCTION MODEL / REVISION {revision}</p>
-          <h3 className="mt-2 text-xl font-semibold">2D line editor</h3>
-          <p className="mt-1 text-xs text-ink/60">Layout coordinates are visual; operation and transfer parameters are stored separately.</p>
+          <h3 className="mt-2 text-xl font-semibold">{activeView === "editor" ? "2D line editor" : "3D line review"}</h3>
+          <p className="mt-1 text-xs text-ink/60">
+            {activeView === "editor"
+              ? "Layout coordinates are visual; operation and transfer parameters are stored separately."
+              : "Review an immutable saved line version. Unsaved draft changes are excluded."}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className={`line-save-status line-save-${status.toLowerCase()}`} role="status">{status.toUpperCase()}</span>
-          <button className="secondary-button" disabled={!history.current.undo.length || !canEdit || busy} onClick={undo} type="button">UNDO</button>
-          <button className="secondary-button" disabled={!history.current.redo.length || !canEdit || busy} onClick={redo} type="button">REDO</button>
-          <button className="secondary-button" disabled={busy} onClick={() => void validateModel()} type="button">VALIDATE</button>
-          <button className="action-button" disabled={busy || !canEdit || status === "Saved"} onClick={() => void saveModel()} type="button">SAVE VERSION</button>
+          <button
+            aria-pressed={activeView === "editor"}
+            className={activeView === "editor" ? "action-button" : "secondary-button"}
+            onClick={() => setActiveView("editor")}
+            type="button"
+          >
+            2D EDITOR
+          </button>
+          <button
+            aria-pressed={activeView === "review"}
+            className={activeView === "review" ? "action-button" : "secondary-button"}
+            onClick={() => setActiveView("review")}
+            type="button"
+          >
+            3D REVIEW
+          </button>
+          <button
+            aria-pressed={motionPaused}
+            className="secondary-button"
+            onClick={() => setMotionPaused((paused) => !paused)}
+            type="button"
+          >
+            {motionPaused ? "RESUME GLOBAL ANIMATIONS" : "PAUSE GLOBAL ANIMATIONS"}
+          </button>
+          {activeView === "editor" && (
+            <>
+              <button className="secondary-button" disabled={!history.current.undo.length || !canEdit || busy} onClick={undo} type="button">UNDO</button>
+              <button className="secondary-button" disabled={!history.current.redo.length || !canEdit || busy} onClick={redo} type="button">REDO</button>
+              <button className="secondary-button" disabled={busy} onClick={() => void validateModel()} type="button">VALIDATE</button>
+              <button className="action-button" disabled={busy || !canEdit || status === "Saved"} onClick={() => void saveModel()} type="button">SAVE VERSION</button>
+            </>
+          )}
           <button className="secondary-button" onClick={onClose} type="button">CLOSE</button>
         </div>
       </header>
@@ -723,7 +876,7 @@ function FlowCanvas({
         </div>
       </div>
 
-      <div className="line-editor-workspace">
+      {activeView === "editor" && <div className="line-editor-workspace">
         <div className="line-flow-canvas" onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }} onDrop={onDrop}>
           <ReactFlow
             deleteKeyCode={null}
@@ -733,7 +886,7 @@ function FlowCanvas({
             fitViewOptions={{ padding: 0.2 }}
             maxZoom={1.8}
             minZoom={0.25}
-            nodes={state.nodes}
+            nodes={state.nodes.map((node) => ({ ...node, selected: node.id === selectedNodeId }))}
             nodesConnectable={editable}
             nodesDraggable={editable}
             nodeTypes={nodeTypes}
@@ -953,8 +1106,124 @@ function FlowCanvas({
             );
           })}
         </aside>
-      </div>
+      </div>}
       </fieldset>
+
+      {activeView === "review" && (
+        <section className="line-review-panel" aria-label="Saved production-line 3D review">
+          <div className="line-review-version">
+            <label className="form-field">
+              <span>Saved line version</span>
+              <select
+                className="registry-select"
+                disabled={reviewLoading || versions.length === 0}
+                onChange={(event) => setReviewVersion(event.target.value)}
+                value={reviewVersion}
+              >
+                {versions.length === 0 && <option value="">No saved versions</option>}
+                {versions.map((version) => (
+                  <option key={version.version} value={version.version}>
+                    v{version.version} · {version.validation.valid ? "valid" : "has issues"} · {new Date(version.created_at).toLocaleString()}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {reviewVersion && (
+              <p className="text-xs text-ink/60">
+                IMMUTABLE SNAPSHOT V{reviewVersion}. Draft edits appear here only after saving a new version.
+              </p>
+            )}
+          </div>
+          {reviewError && <p className="line-3d-fallback-message" role="alert">{reviewError}</p>}
+          {reviewLoading ? (
+            <p className="line-review-empty" role="status">Loading saved line version…</p>
+          ) : reviewModel ? (
+            <div className="line-review-workspace">
+              <Suspense fallback={<p className="line-review-empty" role="status">Loading 3D review tools…</p>}>
+                <Line3DReview
+                  edges={reviewEdges}
+                  machines={reviewMachines}
+                  nodes={reviewNodes}
+                  onSelectNode={(nodeId) => {
+                    setSelectedNodeId(nodeId);
+                    setSelectedEdgeId(null);
+                  }}
+                  selectedNodeId={selectedNodeId}
+                />
+              </Suspense>
+              <aside className="line-model-panel line-asset-inspector" aria-label="Machine and component inspector">
+                <p className="line-panel-label">SAVED VERSION ASSET INSPECTOR</p>
+                {inspectorNode ? (
+                  <>
+                    <h4 className="text-base font-semibold">{inspectorNode.data.label}</h4>
+                    <p className="text-xs text-ink/60">
+                      {inspectorNode.type?.toUpperCase() ?? "MACHINE"} · MODEL NODE {inspectorNode.id}
+                    </p>
+                    {inspectorNode.type === "machine" && selectedMachine ? (
+                      <>
+                        {selectedMachine.archived_at && (
+                          <p className="line-3d-fallback-message">This saved version references an archived machine asset.</p>
+                        )}
+                          <p className="text-xs text-ink/60">Stored asset metadata only; this view contains no live telemetry.</p>
+                          <dl className="line-asset-details">
+                            <div><dt>Asset</dt><dd>{selectedMachine.name}</dd></div>
+                            <div><dt>Identity</dt><dd>{selectedMachine.identity}</dd></div>
+                            <div><dt>Template</dt><dd>{selectedMachine.machine_type === "custom" ? selectedMachine.custom_type_name || "Custom station" : selectedMachine.machine_type.replaceAll("_", " ")}</dd></div>
+                            <div><dt>Recorded state</dt><dd>{selectedMachine.operating_state}</dd></div>
+                            <div><dt>Manufacturer / model</dt><dd>{[selectedMachine.manufacturer, selectedMachine.model].filter(Boolean).join(" / ") || "Not recorded"}</dd></div>
+                            <div><dt>Nominal cycle time</dt><dd>{selectedMachine.nominal_cycle_time_seconds} s</dd></div>
+                            <div><dt>Nominal capacity</dt><dd>{selectedMachine.capacity_per_hour} units/hour</dd></div>
+                        </dl>
+                        <div className="line-asset-component-list">
+                          <p className="line-panel-label">STORED COMPONENTS</p>
+                          {assetDetailsError && <p className="text-sm text-red-800" role="alert">{assetDetailsError}</p>}
+                          {assetDetailsLoading && <p className="text-xs text-ink/60" role="status">Loading stored components…</p>}
+                          {!assetDetailsLoading && !assetDetailsError && components.length === 0 && <p className="text-xs text-ink/60">No components are recorded for this machine.</p>}
+                          {components.map((component) => (
+                            <button
+                              aria-pressed={selectedComponentId === component.id}
+                              className={`line-3d-equipment-item ${selectedComponentId === component.id ? "line-3d-equipment-selected" : ""}`}
+                              key={component.id}
+                              onClick={() => setSelectedComponentId(component.id)}
+                              type="button"
+                            >
+                              <span>{component.name}</span>
+                              <small>{component.component_type} · {component.identity}{component.archived_at ? " · ARCHIVED" : ""}</small>
+                            </button>
+                          ))}
+                          {selectedComponent && (
+                            <dl className="line-asset-details">
+                              <div><dt>Selected component</dt><dd>{selectedComponent.name}</dd></div>
+                              <div><dt>Component type</dt><dd>{selectedComponent.component_type}</dd></div>
+                              <div><dt>Manufacturer / model</dt><dd>{[selectedComponent.manufacturer, selectedComponent.model].filter(Boolean).join(" / ") || "Not recorded"}</dd></div>
+                            </dl>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-sm text-ink/65">
+                        {inspectorNode.type === "machine"
+                          ? "No linked machine asset is recorded for this model node."
+                          : inspectorNode.type === "buffer"
+                            ? `Finite buffer capacity: ${inspectorNode.data.buffer_capacity ?? "not configured"} units.`
+                            : "Material boundary node from the saved model."}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-ink/60">Select equipment in the view or equipment list to inspect its stored asset.</p>
+                )}
+              </aside>
+            </div>
+          ) : reviewVersion ? (
+            <p className="line-review-empty" role="status">The selected saved version is not available for review.</p>
+          ) : (
+            <p className="line-review-empty">
+              Save this line to create an immutable version for 3D review. Your draft is still editable in the 2D editor.
+            </p>
+          )}
+        </section>
+      )}
 
       {validation && (
         <section className={`line-validation ${validation.valid ? "line-validation-ok" : "line-validation-errors"}`} aria-live="polite">

@@ -74,6 +74,30 @@
 - Production still requires external MongoDB with transaction support, TLS Redis, SMTP, and an S3-compatible bucket. Migrations must run explicitly as a serialized release step.
 - The editor validates and stores the factory model but does not yet simulate production or calculate validated equipment physics.
 
+## Layer 5 — Saved-version 3D review
+
+### Completed
+
+- Added a Three.js orthographic/isometric review and top view generated only from immutable saved line-version snapshots.
+- Added template-specific equipment geometry for conveyors, processing stations, CNC/cutting, drilling, assembly, inspection, packaging, buffer/storage, source/sink, and custom stations.
+- Generated static material connections, buffers, parallel stations, construction guides, and drafting hatching from the saved graph. Flow is explicitly illustrative; no operational or simulated movement is shown.
+- Added orbit/zoom/reset controls, accessible machine selection, synchronized 2D/3D selection, and an inspector backed by the stored machine and component records.
+- Added a WebGL-unavailable SVG schematic fallback while preserving the 2D editor and asset inspection. Added a global animation pause control and retained reduced-motion support.
+
+### Verification
+
+- `npm test` — includes TypeScript production build, WebGL-disabled fallback and keyboard-selection tests, saved-model update rendering, and landing-page regression tests.
+- `npm run test:backend` — 36 passed; saved-version endpoint and existing organization isolation coverage remain green.
+- `npm --prefix frontend run build:vercel` — passed; landing root, `/app` entry, landing favicon, and lazy 3D-review chunk are present in the combined output.
+- The 3D review chunk is 524 KB minified (133 KB gzip) and is loaded on demand; Vite reports its standard 500 KB chunk-size warning.
+- Vercel CLI deployment, physical WebGL hardware/browser rendering, and managed-service checks remain unverified.
+
+### Known limitations
+
+- Geometry is a review visualization only, not a validated physics model or operational simulation.
+- The 3D view requires WebGL; browsers without it receive a static, selectable SVG schematic and can return to 2D editing.
+- Machine/component details reflect current organization-scoped asset records, while layout and connections come from the selected immutable line snapshot.
+
 ### Next layer
 
 Implement only the next layer requested by the user.

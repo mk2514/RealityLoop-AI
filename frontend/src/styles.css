@@ -416,6 +416,200 @@ a {
   font-size: 0.7rem;
 }
 
+.line-review-panel {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.line-review-version {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.8rem 1.5rem;
+  border: 1px solid #bcbeb5;
+  background: rgb(255 255 255 / 45%);
+  padding: 0.8rem;
+}
+
+.line-review-version .form-field {
+  min-width: min(100%, 20rem);
+}
+
+.line-review-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(17rem, 22rem);
+  gap: 1rem;
+  align-items: start;
+}
+
+.line-3d-review {
+  min-width: 0;
+  border: 1px solid #bcbeb5;
+  background: #f5f5ee;
+}
+
+.line-3d-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.8rem;
+  border-bottom: 1px solid #bcbeb5;
+  padding: 0.8rem;
+}
+
+.line-3d-toolbar .form-field {
+  min-width: min(100%, 17rem);
+}
+
+.line-3d-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.line-3d-controls .secondary-button {
+  min-height: 2.4rem;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.65rem;
+}
+
+.line-3d-viewport,
+.line-3d-schematic {
+  display: block;
+  width: 100%;
+  height: 34rem;
+  background-color: #f5f5ee;
+  background-image:
+    linear-gradient(to right, rgb(55 59 49 / 4%) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(55 59 49 / 4%) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.line-3d-viewport canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline-color: #f0441a;
+}
+
+.line-3d-schematic {
+  height: auto;
+  min-height: 24rem;
+  max-height: 40rem;
+}
+
+.line-3d-svg-node {
+  cursor: pointer;
+  outline: none;
+}
+
+.line-3d-svg-node:focus-visible {
+  filter: drop-shadow(0 0 3px #f0441a);
+}
+
+.line-3d-svg-label,
+.line-3d-svg-capacity {
+  fill: #191b17;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+}
+
+.line-3d-svg-capacity {
+  fill: #55574d;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+}
+
+.line-3d-fallback-message {
+  border-left: 3px solid #b94a28;
+  background: rgb(255 255 255 / 55%);
+  padding: 0.7rem 0.9rem;
+  color: #414239;
+  font-size: 0.8rem;
+}
+
+.line-3d-caption {
+  border-top: 1px solid #d5d4cb;
+  padding: 0.55rem 0.8rem;
+  color: rgb(25 27 23 / 65%);
+  font-size: 0.75rem;
+}
+
+.line-3d-equipment,
+.line-asset-component-list {
+  display: grid;
+  gap: 0.45rem;
+  border-top: 1px solid #d5d4cb;
+  padding: 0.7rem 0.8rem;
+}
+
+.line-3d-equipment-item {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid #bcbeb5;
+  background: rgb(255 255 255 / 55%);
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+}
+
+.line-3d-equipment-item:hover,
+.line-3d-equipment-selected {
+  border-color: #b94a28;
+  outline: 1px solid #b94a28;
+  outline-offset: 1px;
+}
+
+.line-3d-equipment-item small {
+  color: rgb(25 27 23 / 62%);
+  font-size: 0.68rem;
+}
+
+.line-asset-inspector {
+  width: 100%;
+  max-height: 42rem;
+  overflow: auto;
+}
+
+.line-asset-details {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.line-asset-details > div {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.8fr) minmax(0, 1fr);
+  gap: 0.5rem;
+  border-top: 1px solid #d5d4cb;
+  padding-top: 0.45rem;
+  font-size: 0.76rem;
+}
+
+.line-asset-details dt {
+  color: rgb(25 27 23 / 62%);
+}
+
+.line-asset-details dd {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.line-review-empty {
+  border: 1px solid #bcbeb5;
+  background: rgb(255 255 255 / 50%);
+  padding: 1rem;
+  color: rgb(25 27 23 / 75%);
+  font-size: 0.9rem;
+}
+
+[data-motion-paused="true"] *,
+[data-motion-paused="true"] *::before,
+[data-motion-paused="true"] *::after {
+  animation-play-state: paused !important;
+}
+
 @media (max-width: 900px) {
   .line-editor-header,
   .line-editor-toolbar,
@@ -423,9 +617,17 @@ a {
     flex-direction: column;
   }
 
+  .line-review-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .line-flow-canvas {
     min-height: 28rem;
     flex: none;
+  }
+
+  .line-3d-viewport {
+    height: 28rem;
   }
 
   .line-model-panel {

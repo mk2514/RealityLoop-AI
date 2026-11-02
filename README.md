@@ -19,6 +19,7 @@ The local landing demo is a separate browser-only experience; its data is not im
 - Email verification and recovery, server-side sessions, CSRF protection, rate limits and organization roles.
 - Organization-isolated factory, production-line, machine, component and sensor registry with audit history.
 - Persistent 2D production-line graphs with explicit sources/sinks, branching, buffers, recipes, operation compatibility, transfer assumptions, validation, undo/redo, immutable versions and optimistic concurrency.
+- Saved-version 3D line review with orthographic/isometric and top views, linked equipment/component inspection, synchronized machine selection, and a keyboard-accessible SVG fallback when WebGL is unavailable. Flow paths are illustrative; no live job movement is shown.
 - MongoDB collection validators and explicit, idempotent migrations.
 - Vercel Services configuration for the static frontend and FastAPI backend on one deployment origin.
 

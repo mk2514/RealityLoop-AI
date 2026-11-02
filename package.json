@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/model.test.mjs",
+    "test": "npm --prefix frontend test",
     "test:backend": "node tests/run-backend-tests.mjs",
     "build": "npm run build:frontend",
     "build:frontend": "npm --prefix frontend run build",
