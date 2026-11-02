@@ -26,6 +26,10 @@ The application includes email-verified accounts, private workspaces, factory re
 - Separate organization records and role-based memberships; factory queries are organization-scoped.
 - A persistent, initially empty workspace dashboard with role-aware factory creation and logout.
 - Mailpit-based local email testing; production SMTP is configured through environment variables.
+- Factory onboarding with timezone, unit preferences and weekly shifts (including overnight shifts).
+- Organization-scoped production lines, machines, components and sensors with edit, soft-archive, reopen and audit history.
+- Equipment templates and operating-state definitions; templates are metadata suggestions, not validated physics models.
+- Measurement-specific sensor unit validation, threshold ordering and calibration metadata.
 
 ## Run locally
 
@@ -55,6 +59,10 @@ Migrations are versioned in `backend/app/db/migrations/versions/`. They apply st
 - Workspace endpoints use the authenticated organization ID in their MongoDB queries. Factory creation is limited to owners, administrators and engineers; operators and viewers have read-only access.
 - The preserved public landing-page sample continues to use browser-local demo data. It is not migrated to any account.
 
+### Factory asset registry
+
+The authenticated workspace dashboard contains the factory registry. Create a factory, then add production lines, machines, components and sensors from their parent records. Templates prefill descriptive capabilities only; machine physics remain explicitly unvalidated. Archives are soft, cascade to descendants, and can be reopened in parent-first order. Important changes are written to the organization-scoped asset audit log. Migration `0003_factory_assets` applies collection validators and organization-scoped identity indexes, and adds default settings for existing factory documents.
+
 ### Local development endpoints
 
 - Mailpit inbox: `http://localhost:8025`; SMTP: `localhost:1025`.
@@ -71,7 +79,7 @@ The MongoDB identity model uses separate organization, user, and organization-me
 
 ## Scope
 
-The preserved landing page is a browser-local demonstration, not a production manufacturing backend. The application foundation and Layer 2 authentication/workspace flows are implemented. Sensor ingestion, real machine connections, versioned factory-line models, simulation, forecasts and decision workflows remain unimplemented.
+The preserved landing page is a browser-local demonstration, not a production manufacturing backend. Application foundation, Layer 2 authentication/workspace flows, and Layer 3 factory onboarding/asset registry are implemented. Sensor ingestion, real machine connections, versioned production models, simulation, forecasts and decision workflows remain unimplemented.
 
 No user data is sent to an application server by this page. Demo configuration and decision history use localStorage, while imported readings remain in memory. Read the page privacy notice for hosting limitations.
 

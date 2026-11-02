@@ -8,7 +8,7 @@ from urllib.parse import quote
 from bson import ObjectId
 from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 from pymongo.errors import DuplicateKeyError
 
 from app.core.config import get_settings
@@ -101,11 +101,6 @@ class PasswordResetRequest(TokenRequest):
         if len(value) > 256:
             raise ValueError("Password must contain no more than 256 characters.")
         return value
-
-
-class FactoryCreateRequest(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
-    name: str = Field(min_length=1, max_length=160)
 
 
 @dataclass(frozen=True)
@@ -324,12 +319,6 @@ def require_roles(*roles: str):
         return principal
 
     return dependency
-
-
-def _parse_object_id(value: str) -> ObjectId:
-    if not ObjectId.is_valid(value):
-        raise HTTPException(status_code=404, detail="Factory not found.")
-    return ObjectId(value)
 
 
 @router.get("/csrf")
@@ -570,7 +559,7 @@ def get_me(principal: Principal = Depends(get_current_principal)) -> dict[str, o
 def get_dashboard(principal: Principal = Depends(get_current_principal)) -> dict[str, object]:
     database = get_database()
     factory_count = database.factories.count_documents(
-        {"organization_id": principal.organization_id}
+        {"organization_id": principal.organization_id, "archived_at": None}
     )
     completed_steps = 1 + min(factory_count, 1)
     return {
@@ -598,48 +587,3 @@ def get_dashboard(principal: Principal = Depends(get_current_principal)) -> dict
             ],
         },
     }
-
-
-@router.get("/factories")
-def list_factories(principal: Principal = Depends(get_current_principal)) -> dict[str, object]:
-    records = get_database().factories.find(
-        {"organization_id": principal.organization_id}
-    ).sort("created_at", 1)
-    return {
-        "factories": [
-            {"id": str(record["_id"]), "name": record["name"]}
-            for record in records
-        ]
-    }
-
-
-@router.post("/factories", status_code=201)
-def create_factory(
-    payload: FactoryCreateRequest,
-    principal: Principal = Depends(require_roles("owner", "administrator", "engineer")),
-) -> dict[str, str]:
-    now = datetime.now(UTC)
-    document = {
-        "organization_id": principal.organization_id,
-        "name": payload.name,
-        "created_at": now,
-        "updated_at": now,
-    }
-    result = get_database().factories.insert_one(document)
-    return {"id": str(result.inserted_id), "name": payload.name}
-
-
-@router.get("/factories/{factory_id}")
-def get_factory(
-    factory_id: str,
-    principal: Principal = Depends(get_current_principal),
-) -> dict[str, str]:
-    factory = get_database().factories.find_one(
-        {
-            "_id": _parse_object_id(factory_id),
-            "organization_id": principal.organization_id,
-        }
-    )
-    if factory is None:
-        raise HTTPException(status_code=404, detail="Factory not found.")
-    return {"id": str(factory["_id"]), "name": factory["name"]}

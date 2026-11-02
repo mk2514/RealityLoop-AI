@@ -64,3 +64,36 @@ Implement the next user-requested layer.
 ### Next layer
 
 Implement the next user-requested layer only after its scope is provided.
+
+## Layer 3 — Factory onboarding and asset registry
+
+### Completed
+
+- Added migration `0003_factory_assets`, with strict MongoDB validators, organization-scoped identity indexes, and defaults for factories created by earlier layers.
+- Added authenticated organization-scoped CRUD for factories, production lines, machines, components and sensors; edits and lifecycle changes persist with audit records.
+- Added factory timezone, unit preferences, descriptions and weekly shifts. Shift validation supports overnight schedules and rejects invalid, zero-length or overlapping shifts.
+- Added equipment templates for conveyor, processing station, CNC/cutting, drilling, assembly, inspection, packaging and buffer/storage, plus a custom station type. These are explicitly descriptive templates, not validated physics models.
+- Added the seven requested machine operating states, measurement-specific sensor unit validation, ordered thresholds and timezone-aware calibration metadata.
+- Added dependency-aware soft archive and parent-first reopen behavior. Children archived by a parent are restored with it; independently archived children remain archived.
+- Added the factory registry to the authenticated dashboard with role-aware controls, parent selection, create/edit forms, and archive/reopen actions.
+- Added organization-isolation, hierarchy, validation, audit, persistence, archive/reopen and race-guard tests.
+
+### Verification
+
+- `npm run build:frontend` — passed; TypeScript check and Vite production build.
+- `npm run test:backend` — 28 passed, including parent-before-child reopen and concurrent-update/archive regression coverage.
+- `npm test` — passed; landing-page behavior regressions.
+- `docker compose --env-file .env.example -f infra/docker-compose.yml config --quiet` — passed.
+- `git diff --check` — passed after the final test/docs edits.
+- Docker Desktop is unavailable in this environment, so full Compose startup, live MongoDB transaction behavior, and migration execution against an empty MongoDB server remain unverified. Backend persistence tests use `mongomock` and a transaction test double.
+
+### Known limitations
+
+- Sensor records are configuration only; no ingestion, live telemetry, machine integration or industrial-network connection exists.
+- Templates do not represent validated equipment physics.
+- Real persistence across MongoDB service restarts and production transaction guarantees depend on running the supplied replica-set Compose stack, which could not be started here.
+- No production model versioning, simulation, forecasts or decision workflows are included.
+
+### Next layer
+
+Await the next requested layer.

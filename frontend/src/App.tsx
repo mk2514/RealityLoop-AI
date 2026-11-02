@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { ApiError, apiRequest } from "./api";
+import { AssetRegistry } from "./AssetRegistry";
 import faviconUrl from "../../dist/assets/favicon.svg";
 
 type OrganizationInfo = { id: string; name: string; slug: string; role: string };
@@ -13,8 +14,6 @@ type DashboardData = {
     steps: { key: string; label: string; complete: boolean }[];
   };
 };
-type Factory = { id: string; name: string };
-
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   return "The application service could not be reached. Try again shortly.";
@@ -321,22 +320,16 @@ function ResetPasswordPage() {
 
 function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [factories, setFactories] = useState<Factory[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [showFactoryForm, setShowFactoryForm] = useState(false);
   const form = useFormStatus();
 
   async function loadWorkspace() {
     setLoading(true);
     setLoadError("");
     try {
-      const [dashboardData, factoryData] = await Promise.all([
-        apiRequest<DashboardData>("/dashboard"),
-        apiRequest<{ factories: Factory[] }>("/factories"),
-      ]);
+      const dashboardData = await apiRequest<DashboardData>("/dashboard");
       setDashboard(dashboardData);
-      setFactories(factoryData.factories);
     } catch (error) {
       setLoadError(errorMessage(error));
     } finally {
@@ -348,17 +341,10 @@ function DashboardPage() {
     void loadWorkspace();
   }, []);
 
-  function createFactory(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const values = Object.fromEntries(new FormData(event.currentTarget).entries());
-    void form.run(async () => {
-      await apiRequest("/factories", {
-        method: "POST",
-        body: JSON.stringify({ name: values.name }),
-      });
-      setShowFactoryForm(false);
-      await loadWorkspace();
-    });
+  function refreshDashboard() {
+    void apiRequest<DashboardData>("/dashboard")
+      .then(setDashboard)
+      .catch((error: unknown) => setLoadError(errorMessage(error)));
   }
 
   function logout() {
@@ -406,58 +392,12 @@ function DashboardPage() {
             </div>
             <Feedback error={form.error} message="" />
 
-            <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_0.8fr]">
-              <section aria-labelledby="factories-title">
-                <div className="flex flex-wrap items-end justify-between gap-4">
-                  <div>
-                    <p className="font-mono text-xs tracking-widest text-ink/60">STORED WORKSPACE RECORDS</p>
-                    <h2 className="mt-2 text-2xl font-semibold" id="factories-title">Factories</h2>
-                  </div>
-                  {["owner", "administrator", "engineer"].includes(dashboard.organization.role) ? (
-                    <button
-                      className="action-button"
-                      onClick={() => setShowFactoryForm((visible) => !visible)}
-                      type="button"
-                    >
-                      {showFactoryForm ? "CANCEL" : factories.length ? "ADD FACTORY" : "CREATE YOUR FIRST FACTORY"}
-                    </button>
-                  ) : (
-                    <p className="max-w-xs text-sm text-ink/65">
-                      Read-only workspace access. Ask an owner or administrator to add factories.
-                    </p>
-                  )}
-                </div>
-
-                {showFactoryForm && (
-                  <form className="mt-6 border border-rule bg-white/50 p-5" onSubmit={createFactory}>
-                    <label className="form-field">
-                      <span>Factory name</span>
-                      <input autoFocus maxLength={160} name="name" required />
-                    </label>
-                    <button className="action-button mt-5" disabled={form.busy} type="submit">
-                      {form.busy ? "SAVING…" : "SAVE FACTORY"}
-                    </button>
-                  </form>
-                )}
-
-                {factories.length === 0 && !showFactoryForm ? (
-                  <div className="mt-6 border border-dashed border-rule p-7">
-                    <p className="font-semibold">No factories have been added.</p>
-                    <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink/70">
-                      Create a factory to begin onboarding. No production data or machine connection is assumed.
-                    </p>
-                  </div>
-                ) : (
-                  <ul className="mt-6 divide-y divide-rule border-y border-rule">
-                    {factories.map((factory) => (
-                      <li className="flex items-center justify-between gap-4 py-4" key={factory.id}>
-                        <span className="font-medium">{factory.name}</span>
-                        <span className="font-mono text-xs text-ink/55">FACTORY / STORED</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
+            <div className="mt-8 grid gap-8">
+              <AssetRegistry
+                onChanged={refreshDashboard}
+                onSignOut={logout}
+                role={dashboard.organization.role}
+              />
 
               <aside className="border border-rule bg-white/40 p-6" aria-labelledby="onboarding-title">
                 <p className="font-mono text-xs tracking-widest text-ink/60">ONBOARDING</p>

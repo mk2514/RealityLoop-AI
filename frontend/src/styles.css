@@ -57,6 +57,22 @@ a {
   outline-offset: 2px;
 }
 
+.registry-select,
+.registry-textarea {
+  width: 100%;
+  border: 1px solid #bcbeb5;
+  border-radius: 0;
+  background: rgb(255 255 255 / 70%);
+  padding: 0.7rem 0.8rem;
+  color: #191b17;
+}
+
+.registry-select:focus-visible,
+.registry-textarea:focus-visible {
+  outline: 2px solid #f0441a;
+  outline-offset: 2px;
+}
+
 .action-button,
 .secondary-button {
   display: inline-flex;

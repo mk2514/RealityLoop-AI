@@ -56,6 +56,10 @@ def auth_environment(monkeypatch):
     monkeypatch.setattr(auth, "_rate_limit", lambda *_args: None)
     monkeypatch.setattr(auth, "get_settings", lambda: settings)
     monkeypatch.setattr(auth, "send_email", lambda *args: messages.append(args))
+    from app.api.routes import assets
+
+    monkeypatch.setattr(assets, "get_database", lambda: database)
+    monkeypatch.setattr(assets, "get_mongo_client", TransactionClient)
     return database, messages, settings
 
 

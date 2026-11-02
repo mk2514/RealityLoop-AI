@@ -1,6 +1,7 @@
 from app.db.migrations.runner import migrate
 from app.db.migrations.versions import v0001_identity_foundation as initial_migration
 from app.db.migrations.versions import v0002_authentication as authentication_migration
+from app.db.migrations.versions import v0003_factory_assets as factory_assets_migration
 
 
 class MemoryCollection:
@@ -30,6 +31,28 @@ class MemoryCollection:
             if all(document.get(key) == value for key, value in query.items()):
                 document.update(update.get("$set", {}))
 
+    def update_one(self, query: dict, update: dict, **_kwargs) -> None:
+        for document in self.documents:
+            if all(document.get(key) == value for key, value in query.items()):
+                document.update(update.get("$set", {}))
+                return
+
+    def find(self, query: dict) -> list[dict]:
+        return [
+            document
+            for document in self.documents
+            if all(
+                document.get(key) == value
+                for key, value in query.items()
+                if not (isinstance(value, dict) and "$exists" in value)
+            )
+            and all(
+                (key in document) == condition["$exists"]
+                for key, condition in query.items()
+                if isinstance(condition, dict) and "$exists" in condition
+            )
+        ]
+
 
 class MemoryDatabase:
     def __init__(self) -> None:
@@ -58,12 +81,25 @@ class MemoryDatabase:
 def test_identity_migration_is_versioned_and_repeatable() -> None:
     database = MemoryDatabase()
 
-    assert migrate(database) == ["0001_identity_foundation", "0002_authentication"]
+    database.factories.insert_one(
+        {
+            "_id": "legacy-factory",
+            "organization_id": "legacy-org",
+            "name": "Legacy factory",
+            "created_at": "created",
+            "updated_at": "updated",
+        }
+    )
+    assert migrate(database) == [
+        "0001_identity_foundation",
+        "0002_authentication",
+        "0003_factory_assets",
+    ]
     assert migrate(database) == []
     assert {"organizations", "users", "organization_memberships", "schema_migrations"} <= set(
         database.list_collection_names()
     )
-    assert len(database["schema_migrations"].documents) == 2
+    assert len(database["schema_migrations"].documents) == 3
     assert database.organizations.options["validator"] == initial_migration.COLLECTIONS[
         "organizations"
     ]
@@ -74,3 +110,9 @@ def test_identity_migration_is_versioned_and_repeatable() -> None:
     )
     assert "auth_tokens" in database.list_collection_names()
     assert any(index[1].get("expireAfterSeconds") == 0 for index in database.sessions.indexes)
+    assert database.factories.options["validator"] == (
+        factory_assets_migration.ASSET_COLLECTIONS["factories"]
+    )
+    assert database.factories.documents[0]["timezone"] == "UTC"
+    assert "sensors" in database.list_collection_names()
+    assert "asset_audit_logs" in database.list_collection_names()
