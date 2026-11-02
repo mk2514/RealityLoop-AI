@@ -2,6 +2,7 @@ from app.db.migrations.runner import migrate
 from app.db.migrations.versions import v0001_identity_foundation as initial_migration
 from app.db.migrations.versions import v0002_authentication as authentication_migration
 from app.db.migrations.versions import v0003_factory_assets as factory_assets_migration
+from app.db.migrations.versions import v0004_production_line_models as line_models_migration
 
 
 class MemoryCollection:
@@ -94,12 +95,13 @@ def test_identity_migration_is_versioned_and_repeatable() -> None:
         "0001_identity_foundation",
         "0002_authentication",
         "0003_factory_assets",
+        "0004_production_line_models",
     ]
     assert migrate(database) == []
     assert {"organizations", "users", "organization_memberships", "schema_migrations"} <= set(
         database.list_collection_names()
     )
-    assert len(database["schema_migrations"].documents) == 3
+    assert len(database["schema_migrations"].documents) == 4
     assert database.organizations.options["validator"] == initial_migration.COLLECTIONS[
         "organizations"
     ]
@@ -116,3 +118,10 @@ def test_identity_migration_is_versioned_and_repeatable() -> None:
     assert database.factories.documents[0]["timezone"] == "UTC"
     assert "sensors" in database.list_collection_names()
     assert "asset_audit_logs" in database.list_collection_names()
+    assert database.production_line_models.options["validator"] == (
+        line_models_migration.MODEL_VALIDATOR
+    )
+    assert database.production_line_versions.options["validator"] == (
+        line_models_migration.VERSION_VALIDATOR
+    )
+    assert any(index[1].get("unique") for index in database.production_line_versions.indexes)

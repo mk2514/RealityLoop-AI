@@ -1,4 +1,26 @@
+[project]
+name = "realityloop-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3==1.43.123",
+    "celery[redis]==5.5.3",
+    "email-validator==2.2.0",
+    "fastapi==0.115.14",
+    "pwdlib[argon2]==0.2.1",
+    "pydantic-settings==2.10.1",
+    "pymongo==4.13.2",
+    "redis==5.2.1",
+    "uvicorn[standard]==0.34.3",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q"
+
+[tool.vercel]
+entrypoint = "app.main:app"
+
+[[tool.vercel.subscribers]]
+entrypoint = "app.worker.celery_app:celery_app"

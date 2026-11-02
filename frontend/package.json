@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "build:vercel": "npm run build && node scripts/build-vercel.mjs",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "npm run build && node ../tests/model.test.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "4.7.0",
+    "@xyflow/react": "^12.12.1",
     "react": "19.1.1",
     "react-dom": "19.1.1",
     "vite": "6.4.5"

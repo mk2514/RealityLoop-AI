@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     app_name: str = "RealityLoop API"
     environment: str = "development"
     log_level: str = "INFO"
+    mongo_uri: str = Field(default="", validation_alias="MONGO_URI")
     mongo_host: str = "localhost"
     mongo_port: int = 27017
     mongo_database: str = "realityloop"
@@ -21,8 +22,11 @@ class Settings(BaseSettings):
     )
     mongo_auth_source: str = ""
     redis_url: str = "redis://localhost:6379/0"
-    minio_endpoint_url: str = "http://localhost:9000"
-    minio_bucket: str = "realityloop"
+    s3_endpoint_url: str = Field(default="", validation_alias="S3_ENDPOINT_URL")
+    s3_region: str = Field(default="us-east-1", validation_alias="S3_REGION")
+    s3_bucket: str = Field(default="", validation_alias="S3_BUCKET")
+    s3_access_key_id: str = Field(default="", validation_alias="S3_ACCESS_KEY_ID")
+    s3_secret_access_key: str = Field(default="", validation_alias="S3_SECRET_ACCESS_KEY")
     session_cookie_name: str = "rl_session"
     csrf_cookie_name: str = "rl_csrf"
     session_ttl_seconds: int = Field(default=60 * 60 * 12, gt=0)
@@ -46,12 +50,13 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
+        populate_by_name=True,
         extra="ignore",
     )
 
     @model_validator(mode="after")
     def production_requires_secure_configuration(self) -> "Settings":
-        if self.environment.lower() == "production":
+        if self.environment.lower() in {"production", "preview"}:
             if not self.cookie_secure:
                 raise ValueError("COOKIE_SECURE must be enabled in production.")
             if not self.public_app_url.startswith("https://"):
@@ -64,12 +69,31 @@ class Settings(BaseSettings):
                 raise ValueError("SMTP_HOST and SMTP_SENDER are required in production.")
             if not (self.smtp_starttls or self.smtp_ssl):
                 raise ValueError("Production SMTP must use STARTTLS or SSL.")
-            if (
-                not self.mongo_username
+            if self.mongo_uri:
+                if (
+                    not self.mongo_uri.startswith("mongodb+srv://")
+                    or "@" not in self.mongo_uri
+                ):
+                    raise ValueError(
+                        "Production MONGO_URI must be an authenticated mongodb+srv:// URI."
+                    )
+            elif (
+                self.mongo_host.lower() in {"localhost", "127.0.0.1"}
+                or not self.mongo_username
                 or not self.mongo_password
                 or self.mongo_password.startswith("replace-with-")
             ):
-                raise ValueError("Production MongoDB application credentials must be configured.")
+                raise ValueError(
+                    "Production MongoDB requires an authenticated remote cluster URI."
+                )
+            if not self.redis_url.startswith("rediss://"):
+                raise ValueError("Production REDIS_URL must use TLS (rediss://).")
+            if not self.s3_bucket or not self.s3_access_key_id or not self.s3_secret_access_key:
+                raise ValueError(
+                    "Production S3-compatible storage bucket credentials must be configured."
+                )
+            if self.s3_endpoint_url and not self.s3_endpoint_url.startswith("https://"):
+                raise ValueError("Production S3_ENDPOINT_URL must use HTTPS.")
         return self
 
 

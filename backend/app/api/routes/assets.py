@@ -8,10 +8,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pymongo.errors import DuplicateKeyError
 
-from app.api.routes.auth import Principal, get_current_principal, require_roles
+from app.api.routes.auth import (
+    Principal,
+    get_current_principal,
+    require_csrf,
+    require_roles,
+)
 from app.db.client import get_database, get_mongo_client
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_csrf)])
 CAN_EDIT_ASSETS = ("owner", "administrator", "engineer")
 DAYS = {0, 1, 2, 3, 4, 5, 6}
 MACHINE_TYPES = (

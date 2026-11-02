@@ -1,6 +1,8 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from app.api.routes import health
+from app.core.config import Settings
 from app.main import app
 
 client = TestClient(app)
@@ -64,6 +66,39 @@ def test_readiness_is_unavailable_when_smtp_is_down(monkeypatch) -> None:
 
     assert response.status_code == 503
     assert response.json()["dependencies"]["smtp"] == "unavailable"
+
+
+def test_object_storage_readiness_checks_configured_bucket(monkeypatch) -> None:
+    calls = []
+
+    class StorageClient:
+        def head_bucket(self, *, Bucket: str) -> None:
+            calls.append(Bucket)
+
+    monkeypatch.setattr(
+        health,
+        "get_settings",
+        lambda: Settings(_env_file=None, s3_bucket="models"),
+    )
+    monkeypatch.setattr(health.boto3, "client", lambda *_args, **_kwargs: StorageClient())
+
+    assert health.check_object_storage() is True
+    assert calls == ["models"]
+
+
+def test_object_storage_readiness_fails_without_a_bucket(monkeypatch) -> None:
+    monkeypatch.setattr(
+        health,
+        "get_settings",
+        lambda: Settings(_env_file=None, s3_bucket=""),
+    )
+    monkeypatch.setattr(
+        health.boto3,
+        "client",
+        lambda *_args, **_kwargs: pytest.fail("No client should be created without a bucket"),
+    )
+
+    assert health.check_object_storage() is False
 
 
 def test_http_errors_use_structured_request_aware_shape() -> None:

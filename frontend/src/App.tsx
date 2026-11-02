@@ -107,7 +107,7 @@ function RegisterPage() {
           organization_name: values.organization_name,
         }),
       });
-      form.setMessage(`${result.message} In local development, open Mailpit at http://localhost:8025.`);
+      form.setMessage(`${result.message} Check the configured email inbox for a link.`);
     });
   }
 
@@ -195,7 +195,7 @@ function ResendVerificationPage() {
         method: "POST",
         body: JSON.stringify({ email: values.email }),
       });
-      form.setMessage(`${result.message} In local development, open Mailpit at http://localhost:8025.`);
+      form.setMessage(`${result.message} Check the configured email inbox for a link.`);
     });
   }
 
@@ -260,7 +260,7 @@ function RecoveryPage() {
         method: "POST",
         body: JSON.stringify({ email: values.email }),
       });
-      form.setMessage(`${result.message} In local development, open Mailpit at http://localhost:8025.`);
+      form.setMessage(`${result.message} Check the configured email inbox for a link.`);
     });
   }
 

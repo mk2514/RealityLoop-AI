@@ -6,11 +6,13 @@ from app.db.client import get_database, get_mongo_client
 from app.db.migrations.versions import v0001_identity_foundation
 from app.db.migrations.versions import v0002_authentication
 from app.db.migrations.versions import v0003_factory_assets
+from app.db.migrations.versions import v0004_production_line_models
 
 MIGRATIONS = (
     v0001_identity_foundation,
     v0002_authentication,
     v0003_factory_assets,
+    v0004_production_line_models,
 )
 
 

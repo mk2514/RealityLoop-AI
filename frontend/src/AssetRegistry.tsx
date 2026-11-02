@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, apiRequest } from "./api";
+import { LineModelEditor } from "./LineModelEditor";
 
 type RegistryAsset = {
   id: string;
@@ -507,6 +508,7 @@ export function AssetRegistry({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [lineEditorOpen, setLineEditorOpen] = useState(false);
   const canEdit = ["owner", "administrator", "engineer"].includes(role);
   const activeFactory = factories.find((item) => item.id === factoryId);
   const activeLine = lines.find((item) => item.id === lineId);
@@ -860,6 +862,34 @@ export function AssetRegistry({
               </div>
             );
           })()}
+        </section>
+      )}
+      {activeLine && !activeLine.archived_at && (
+        <section className="mt-6 border border-rule bg-white/35 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="font-mono text-xs tracking-wider text-ink/55">PRODUCTION MODEL</p>
+              <p className="mt-2 font-semibold">{activeLine.name}</p>
+              <p className="mt-1 text-sm text-ink/65">
+                Build and validate the production route for this line.
+              </p>
+            </div>
+            <button
+              className="action-button"
+              onClick={() => setLineEditorOpen((open) => !open)}
+              type="button"
+            >
+              {lineEditorOpen ? "CLOSE LINE EDITOR" : "OPEN 2D LINE EDITOR"}
+            </button>
+          </div>
+          {lineEditorOpen && (
+            <LineModelEditor
+              canEdit={canEdit}
+              key={activeLine.id}
+              lineId={activeLine.id}
+              onClose={() => setLineEditorOpen(false)}
+            />
+          )}
         </section>
       )}
       <p className="mt-5 text-xs leading-relaxed text-ink/60">

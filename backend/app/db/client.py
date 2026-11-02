@@ -10,6 +10,13 @@ from app.core.config import get_settings
 @lru_cache
 def get_mongo_client() -> MongoClient:
     settings = get_settings()
+    if settings.mongo_uri:
+        return MongoClient(
+            settings.mongo_uri,
+            serverSelectionTimeoutMS=1000,
+            connectTimeoutMS=1000,
+            appname=settings.app_name,
+        )
     return MongoClient(
         host=settings.mongo_host,
         port=settings.mongo_port,

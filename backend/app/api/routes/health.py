@@ -1,8 +1,9 @@
 import logging
 import smtplib
-from urllib.error import URLError
-from urllib.request import urlopen
 
+import boto3
+from botocore.config import Config
+from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, Request, Response
 from pymongo.errors import PyMongoError
 from redis import Redis
@@ -44,10 +45,22 @@ def check_redis() -> bool:
 
 
 def check_object_storage() -> bool:
+    settings = get_settings()
+    if not settings.s3_bucket:
+        logger.warning("Readiness check failed for object storage")
+        return False
     try:
-        with urlopen(f"{get_settings().minio_endpoint_url}/minio/health/ready", timeout=1) as result:
-            return result.status == 200
-    except (OSError, URLError, TimeoutError):
+        client = boto3.client(
+            "s3",
+            endpoint_url=settings.s3_endpoint_url or None,
+            region_name=settings.s3_region,
+            aws_access_key_id=settings.s3_access_key_id or None,
+            aws_secret_access_key=settings.s3_secret_access_key or None,
+            config=Config(connect_timeout=1, read_timeout=1, retries={"max_attempts": 1}),
+        )
+        client.head_bucket(Bucket=settings.s3_bucket)
+        return True
+    except (BotoCoreError, ClientError):
         logger.warning("Readiness check failed for object storage")
         return False
 

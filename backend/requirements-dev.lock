@@ -19,6 +19,12 @@ argon2-cffi-bindings==26.1.0
     # via argon2-cffi
 billiard==4.3.2
     # via celery
+boto3==1.43.123
+    # via -r backend/requirements.txt
+botocore==1.43.123
+    # via
+    #   boto3
+    #   s3transfer
 celery[redis]==5.5.3
     # via -r backend/requirements.txt
 certifi==2026.10.23
@@ -69,6 +75,10 @@ idna==3.20
     #   httpx
 iniconfig==2.3.1
     # via pytest
+jmespath==1.1.0
+    # via
+    #   boto3
+    #   botocore
 kombu[redis]==5.5.4
     # via celery
 mongomock==4.3.0
@@ -100,8 +110,10 @@ pymongo==4.13.2
     # via -r backend/requirements.txt
 pytest==8.4.1
     # via -r backend/requirements-dev.txt
-python-dateutil==4.0.0
-    # via celery
+python-dateutil==2.9.0.post0
+    # via
+    #   botocore
+    #   celery
 python-dotenv==1.2.4
     # via
     #   pydantic-settings
@@ -114,8 +126,12 @@ redis==5.2.1
     # via
     #   -r backend/requirements.txt
     #   kombu
+s3transfer==0.19.3
+    # via boto3
 sentinels==1.1.1
     # via mongomock
+six==1.17.0
+    # via python-dateutil
 starlette==0.46.2
     # via fastapi
 typing-extensions==4.16.0
@@ -131,9 +147,9 @@ typing-inspection==0.4.4
     #   pydantic
     #   pydantic-settings
 tzdata==2026.6
-    # via
-    #   kombu
-    #   python-dateutil
+    # via kombu
+urllib3==2.8.0
+    # via botocore
 uvicorn[standard]==0.34.3
     # via -r backend/requirements.txt
 vine==5.1.0
