@@ -27,7 +27,7 @@ The application screen is intentionally a setup-status screen. It does not imply
 
 Requirements: Docker Engine/Desktop with the Docker Compose v2 plugin, Node.js (for a local frontend build), and a terminal.
 
-1. Copy `.env.example` to `.env` (`Copy-Item .env.example .env` in PowerShell). The example values are for local development only; replace them before sharing the environment.
+1. Copy `.env.example` to `.env` (`Copy-Item .env.example .env` in PowerShell). Compose explicitly loads this root-level file for every service, even though its YAML is under `infra/`. The example values are for local development only; replace them before sharing the environment.
 2. From the repository root, run `docker compose -f infra/docker-compose.yml up --build --wait`.
 3. Open `http://localhost:8080/` for the original landing page, `http://localhost:8080/app/` for the application foundation, or `http://localhost:8080/api/v1/health/ready` for dependency readiness.
 

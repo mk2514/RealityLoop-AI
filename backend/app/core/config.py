@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,8 +11,14 @@ class Settings(BaseSettings):
     mongo_host: str = "localhost"
     mongo_port: int = 27017
     mongo_database: str = "realityloop"
-    mongo_username: str = "realityloop-local"
-    mongo_password: str = "replace-with-a-local-mongodb-password"
+    mongo_username: str = Field(
+        default="realityloop-local",
+        validation_alias="MONGO_ROOT_USERNAME",
+    )
+    mongo_password: str = Field(
+        default="replace-with-a-local-mongodb-password",
+        validation_alias="MONGO_ROOT_PASSWORD",
+    )
     mongo_auth_source: str = "admin"
     redis_url: str = "redis://localhost:6379/0"
     minio_endpoint_url: str = "http://localhost:9000"

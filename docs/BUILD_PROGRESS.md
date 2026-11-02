@@ -25,6 +25,7 @@
 - Authentication, email verification, organization authorization, factory workflows and production telemetry are not implemented.
 - Full Compose startup, and execution of the migration against a real empty MongoDB instance, remain unverified until Docker is available.
 - The frontend is a setup-status screen, not a sign-in or dashboard mockup.
+- Docker must be running to test the complete local stack; Compose config validation alone does not start containers.
 
 ### Next layer
 
