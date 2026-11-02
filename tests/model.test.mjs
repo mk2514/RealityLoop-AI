@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {capacity,validation,parseCSV,sampleSeries} from '../dist/model.js';
+const baseline=capacity();assert.equal(baseline.baseline.units,244);assert.equal(baseline.proposed.units,310);assert.equal(baseline.baseline.bottleneck,'Drilling');assert.equal(baseline.proposed.bottleneck,'Assembly');
+const noChange=capacity({parallel:false});assert.equal(noChange.baseline.units,noChange.proposed.units);
+const demand=capacity({demand:100});assert.equal(demand.baseline.units,100);assert.equal(demand.proposed.units,100);
+const failure=capacity({chaos:'failure'});assert.equal(failure.baseline.units,failure.proposed.units);assert.ok(failure.proposed.units<baseline.proposed.units);
+const delay=capacity({chaos:'delay'});assert.ok(delay.baseline.units<baseline.baseline.units);
+assert.equal(validation(false).passed,false);assert.equal(validation(true).passed,true);
+assert.throws(()=>parseCSV('time,temp\n2026-01-01,20\n2026-01-02,30'));
+assert.throws(()=>parseCSV('timestamp,temperature\n2026-01-01,20\n2026-01-01,30'));
+assert.throws(()=>parseCSV('timestamp,temperature\n2026-01-01,\n2026-01-02,30'));
+const csv='timestamp,temperature\n2026-01-02,50\n2026-01-01,40';assert.equal(parseCSV(csv)[0].value,40);
+assert.equal(sampleSeries().length,60);assert.ok(sampleSeries().every(v=>Number.isFinite(v.value)));
+console.log('Passed: bottleneck capacity, demand limits, parallel capacity, disruptions, held-out validation, CSV validation and ordering.');

@@ -1,0 +1,1 @@
+{"name":"realityloop-ai-landing","private":true,"type":"module","scripts":{"test":"node tests/model.test.mjs"}}
