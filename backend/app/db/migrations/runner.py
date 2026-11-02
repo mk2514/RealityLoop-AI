@@ -4,8 +4,9 @@ from pymongo.database import Database
 
 from app.db.client import get_database, get_mongo_client
 from app.db.migrations.versions import v0001_identity_foundation
+from app.db.migrations.versions import v0002_authentication
 
-MIGRATIONS = (v0001_identity_foundation,)
+MIGRATIONS = (v0001_identity_foundation, v0002_authentication)
 
 
 def migrate(database: Database) -> list[str]:

@@ -1,5 +1,6 @@
 from app.db.migrations.runner import migrate
 from app.db.migrations.versions import v0001_identity_foundation as initial_migration
+from app.db.migrations.versions import v0002_authentication as authentication_migration
 
 
 class MemoryCollection:
@@ -23,6 +24,11 @@ class MemoryCollection:
 
     def create_index(self, keys, **options) -> None:
         self.indexes.append((keys, options))
+
+    def update_many(self, query: dict, update: dict) -> None:
+        for document in self.documents:
+            if all(document.get(key) == value for key, value in query.items()):
+                document.update(update.get("$set", {}))
 
 
 class MemoryDatabase:
@@ -52,13 +58,19 @@ class MemoryDatabase:
 def test_identity_migration_is_versioned_and_repeatable() -> None:
     database = MemoryDatabase()
 
-    assert migrate(database) == ["0001_identity_foundation"]
+    assert migrate(database) == ["0001_identity_foundation", "0002_authentication"]
     assert migrate(database) == []
     assert {"organizations", "users", "organization_memberships", "schema_migrations"} <= set(
         database.list_collection_names()
     )
-    assert len(database["schema_migrations"].documents) == 1
+    assert len(database["schema_migrations"].documents) == 2
     assert database.organizations.options["validator"] == initial_migration.COLLECTIONS[
         "organizations"
     ]
     assert any(index[1].get("unique") for index in database.organization_memberships.indexes)
+    assert database.users.options["validator"] == authentication_migration.USER_VALIDATOR
+    assert database.organization_memberships.options["validator"] == (
+        authentication_migration.MEMBERSHIP_VALIDATOR
+    )
+    assert "auth_tokens" in database.list_collection_names()
+    assert any(index[1].get("expireAfterSeconds") == 0 for index in database.sessions.indexes)

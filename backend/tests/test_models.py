@@ -64,6 +64,6 @@ def test_unique_indexes_reject_duplicate_slugs_emails_and_memberships() -> None:
             MembershipDocument(
                 organization_id=organization.id,
                 user_id=user.id,
-                role="admin",
+                role="administrator",
             ).model_dump(by_alias=True)
         )

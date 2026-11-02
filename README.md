@@ -1,18 +1,18 @@
 # RealityLoop AI
 
-RealityLoop AI is a manufacturing digital-twin and production-planning application. Layer 1 keeps the approved static landing page intact at `/` and adds the React application at `/app` and FastAPI at `/api/v1`.
+RealityLoop AI is a manufacturing digital-twin and production-planning application. The approved static landing page remains at `/`; the React application is served under `/app` and FastAPI under `/api/v1`.
 
 ## Repository layout
 
 - `dist/` — preserved landing-page assets and browser-local demo.
 - `frontend/` — React 19, TypeScript, Vite and Tailwind application.
-- `backend/app/` — FastAPI, PyMongo organization/user document models and Celery worker.
+- `backend/app/` — FastAPI authentication, organization-scoped MongoDB access and Celery worker.
 - `backend/app/db/migrations/` — explicit, versioned MongoDB collection-validator/index migrations.
 - `backend/tests/` — API and persistence foundation tests.
 - `infra/` — local Docker Compose services, Nginx routing and frontend image configuration.
 - `tests/` — landing-page model and CSV regression tests.
 
-The application screen is intentionally a setup-status screen. It does not imply that sign-in, a factory workspace, or production integrations exist yet.
+The application includes email-verified accounts, private workspaces, factory records, and onboarding status. Production integrations and manufacturing workflows are not implemented yet.
 
 ## Features
 
@@ -22,6 +22,10 @@ The application screen is intentionally a setup-status screen. It does not imply
 - Synthetic calibration example using 40 training and 20 held-out samples.
 - Deterministic capacity comparison with demand, downtime, drilling cycles, parallel equipment and disruptions.
 - Local demo configuration, decision history, JSON report export, privacy and terms dialogs.
+- Argon2 password hashing, verification/recovery emails, opaque server-managed sessions, CSRF protection and Redis-backed authentication rate limits.
+- Separate organization records and role-based memberships; factory queries are organization-scoped.
+- A persistent, initially empty workspace dashboard with role-aware factory creation and logout.
+- Mailpit-based local email testing; production SMTP is configured through environment variables.
 
 ## Run locally
 
@@ -29,20 +33,31 @@ Requirements: Docker Engine/Desktop with the Docker Compose v2 plugin, Node.js (
 
 1. Copy `.env.example` to `.env` (`Copy-Item .env.example .env` in PowerShell). Compose explicitly loads this root-level file for every service, even though its YAML is under `infra/`. The example values are for local development only; replace them before sharing the environment.
 2. From the repository root, run `docker compose -f infra/docker-compose.yml up --build --wait`.
-3. Open `http://localhost:8080/` for the original landing page, `http://localhost:8080/app/` for the application foundation, or `http://localhost:8080/api/v1/health/ready` for dependency readiness.
+3. Open `http://localhost:8080/` for the original landing page, `http://localhost:8080/app/` to get started, `http://localhost:8080/app/login` to sign in, or `http://localhost:8080/api/v1/health/ready` for dependency readiness.
 
-Compose starts MongoDB, Redis and MinIO; creates the configured MinIO bucket; runs `python -m app.db.migrations.runner` in a one-shot migration service; then starts the API, Celery worker and Nginx frontend. The API does not run schema changes on startup. It waits for the migration service to complete successfully. MongoDB uses an authenticated `mongosh` ping health check rather than a fixed startup delay.
+Compose starts MongoDB as a single-node replica set (required for transactional account creation), waits for a primary, creates a least-privilege application database user, starts Redis, MinIO and Mailpit, creates the configured MinIO bucket, runs `python -m app.db.migrations.runner` in a one-shot migration service, and then starts the API, Celery worker and Nginx frontend. Migrations are not run on API startup. MongoDB uses an authenticated health check and explicit replica-set initialization instead of startup timing assumptions. The API readiness endpoint also checks the configured SMTP server.
+
+Open `http://localhost:8025/` to inspect verification and password-reset emails sent through Mailpit. The SMTP listener is at `localhost:1025`. Replace the placeholder credentials in `.env` before exposing services beyond the local machine. In production, set `ENVIRONMENT=production`, `COOKIE_SECURE=true`, an HTTPS `PUBLIC_APP_URL`, and SMTP TLS/SSL settings and credentials. Production MongoDB must support transactions (replica set or sharded cluster).
 
 To stop the services while retaining local data, run `docker compose -f infra/docker-compose.yml down`. To remove the local database, Redis and object-storage volumes as well, run `docker compose -f infra/docker-compose.yml down --volumes`; this permanently deletes local development data.
 
-The frontend can also be built without Docker: run `npm --prefix frontend ci` and then `npm run build:frontend`. Run `npm test` for landing-page regression checks. For backend tests on Windows, create `.venv` with `py -3 -m venv .venv`, install dependencies using `.\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.lock`, then run `npm run test:backend`. The test script also detects an existing virtual environment on Linux/macOS.
+The frontend can also be built without Docker: run `npm --prefix frontend ci` and then `npm run build:frontend`. Run `npm test` for landing-page regression checks. For backend tests on Windows, create `.venv` with `py -3 -m venv .venv`, install dependencies using `.\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.lock`, then run `npm run test:backend`. Auth journey tests use `mongomock` and a transaction test double; verify real transaction/migration behavior with the Compose MongoDB replica set when Docker is available. The test script also detects an existing virtual environment on Linux/macOS.
 
 ### Migrations
 
 Migrations are versioned in `backend/app/db/migrations/versions/`. They apply strict MongoDB JSON Schema validators and indexes, and record successful versions in `schema_migrations`. Compose runs them as a required one-shot step before the API starts. For an explicit local invocation while Compose dependencies are up, use `docker compose -f infra/docker-compose.yml run --rm migrate`. Re-running the migration runner is safe; it skips completed versions.
 
+### Authentication and workspace
+
+- Registration creates a separate organization and owner membership in one MongoDB transaction. Users must verify their email before login. Verification and password-reset tokens are one-time, expiring, and stored as SHA-256 digests.
+- Browser sessions are opaque, stored server-side, expiring and revocable; authentication cookies are HttpOnly and SameSite strict. Unsafe API requests require a CSRF cookie/header pair. Secure cookies and HTTPS are mandatory in production settings.
+- Recovery responses do not disclose whether an email is registered. Rate limits use Redis and fail closed when Redis is unavailable.
+- Workspace endpoints use the authenticated organization ID in their MongoDB queries. Factory creation is limited to owners, administrators and engineers; operators and viewers have read-only access.
+- The preserved public landing-page sample continues to use browser-local demo data. It is not migrated to any account.
+
 ### Local development endpoints
 
+- Mailpit inbox: `http://localhost:8025`; SMTP: `localhost:1025`.
 - MinIO API: `http://localhost:9000`; console: `http://localhost:9001`.
 - MongoDB: `localhost:27017`; Redis: `localhost:6379`.
 - API liveness: `/api/v1/health/live`.
@@ -52,11 +67,11 @@ Migrations are versioned in `backend/app/db/migrations/versions/`. They apply st
 
 Static hosting alone cannot run this application stack. A production deployment needs separately operated MongoDB, Redis, a durable S3-compatible object store, an API service, a Celery worker, and a reverse proxy or ingress that routes `/`, `/app`, and `/api/v1` on one HTTPS origin. Apply MongoDB schema migrations as an explicit, serialized release step before deploying compatible API versions. Use managed secrets and a least-privilege application database user (not the local MongoDB root account), encrypted transport, backups, monitoring, worker scaling, object-store lifecycle/permissions, and organization-scoped authorization before accepting customer or machine data. The local Compose credentials and HTTP-only configuration are not production-ready.
 
-The identity foundation uses separate organization, user, and organization-membership collections: memberships reference organizations and users to support unbounded and many-to-many relationships without growing embedded arrays. Unique indexes enforce organization slugs, user emails, and one membership per organization/user pair. Authentication is intentionally not exposed yet.
+The MongoDB identity model uses separate organization, user, and organization-membership collections. Unique indexes enforce organization slugs, user emails, and one membership per organization/user pair. The explicit `0002_authentication` migration adds password and verification fields, role names, sessions, tokens and factories with strict collection validators and expiry indexes.
 
 ## Scope
 
-The preserved landing page is a browser-local demonstration, not a production manufacturing backend. The new API currently provides health/readiness endpoints and database schema foundations only. Authentication, verification, organization-scoped API permissions, factory models, sensor ingestion, real machine connections, simulation, forecasts and decision workflows are not implemented in Layer 1.
+The preserved landing page is a browser-local demonstration, not a production manufacturing backend. The application foundation and Layer 2 authentication/workspace flows are implemented. Sensor ingestion, real machine connections, versioned factory-line models, simulation, forecasts and decision workflows remain unimplemented.
 
 No user data is sent to an application server by this page. Demo configuration and decision history use localStorage, while imported readings remain in memory. Read the page privacy notice for hosting limitations.
 

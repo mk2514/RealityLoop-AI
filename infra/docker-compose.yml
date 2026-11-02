@@ -3,6 +3,18 @@ services:
     image: mongo:8.0.4
     env_file:
       - ../.env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Copy .env.example to .env}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}
+    command:
+      - bash
+      - -lc
+      - >-
+        umask 177
+        && head -c 768 /dev/urandom | base64 | tr -d '\n' > /tmp/mongo-keyfile
+        && chown mongodb:mongodb /tmp/mongo-keyfile
+        && chmod 400 /tmp/mongo-keyfile
+        && exec docker-entrypoint.sh mongod --replSet rs0 --bind_ip_all --keyFile /tmp/mongo-keyfile
     ports:
       - "127.0.0.1:27017:27017"
     volumes:
@@ -20,6 +32,35 @@ services:
       retries: 15
       start_period: 5s
     restart: unless-stopped
+
+  mongodb-init:
+    image: mongo:8.0.4
+    env_file:
+      - ../.env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:?Copy .env.example to .env}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}
+      MONGO_DATABASE: ${MONGO_DATABASE:-realityloop}
+      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME:-realityloop-app}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:-replace-with-a-local-application-database-password}
+    volumes:
+      - ./mongodb-init.js:/scripts/mongodb-init.js:ro
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    entrypoint:
+      - mongosh
+      - --host
+      - mongodb
+      - --username
+      - ${MONGO_ROOT_USERNAME:?Copy .env.example to .env}
+      - --password
+      - ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}
+      - --authenticationDatabase
+      - admin
+      - --file
+      - /scripts/mongodb-init.js
+    restart: "no"
 
   redis:
     image: redis:7.4.1-alpine
@@ -68,6 +109,13 @@ services:
         && mc mb --ignore-existing "local/$$MINIO_BUCKET"
     restart: "no"
 
+  mailpit:
+    image: axllent/mailpit:v1.27.8
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    restart: unless-stopped
+
   migrate:
     build:
       context: ../backend
@@ -77,10 +125,10 @@ services:
     environment:
       MONGO_HOST: mongodb
       MONGO_PORT: 27017
-      MONGO_AUTH_SOURCE: admin
+      MONGO_AUTH_SOURCE: ${MONGO_DATABASE:-realityloop}
     depends_on:
-      mongodb:
-        condition: service_healthy
+      mongodb-init:
+        condition: service_completed_successfully
     command: ["python", "-m", "app.db.migrations.runner"]
     restart: "no"
 
@@ -95,16 +143,30 @@ services:
       LOG_LEVEL: INFO
       MONGO_HOST: mongodb
       MONGO_PORT: 27017
-      MONGO_AUTH_SOURCE: admin
+      MONGO_AUTH_SOURCE: ${MONGO_DATABASE:-realityloop}
       REDIS_URL: redis://redis:6379/0
       MINIO_ENDPOINT_URL: http://minio:9000
+      SMTP_HOST: mailpit
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:8080}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --proxy-headers
+      - --forwarded-allow-ips=*
     depends_on:
-      mongodb:
-        condition: service_healthy
+      mongodb-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      mailpit:
+        condition: service_started
       migrate:
         condition: service_completed_successfully
     healthcheck:
@@ -137,12 +199,12 @@ services:
       LOG_LEVEL: INFO
       MONGO_HOST: mongodb
       MONGO_PORT: 27017
-      MONGO_AUTH_SOURCE: admin
+      MONGO_AUTH_SOURCE: ${MONGO_DATABASE:-realityloop}
       REDIS_URL: redis://redis:6379/0
       MINIO_ENDPOINT_URL: http://minio:9000
     depends_on:
-      mongodb:
-        condition: service_healthy
+      mongodb-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       minio-init:

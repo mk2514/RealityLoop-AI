@@ -19,12 +19,20 @@ export class ApiError extends Error {
 }
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? "GET").toUpperCase();
+  const headers = new Headers(init?.headers);
+  headers.set("Accept", "application/json");
+  if (init?.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    headers.set("X-CSRF-Token", await getCsrfToken());
+  }
+
   const response = await fetch(`/api/v1${path}`, {
     ...init,
-    headers: {
-      Accept: "application/json",
-      ...init?.headers,
-    },
+    method,
+    headers,
     credentials: "same-origin",
   });
 
@@ -45,6 +53,33 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   }
 
   return (await response.json()) as T;
+}
+
+async function getCsrfToken(): Promise<string> {
+  const cookieToken = document.cookie
+    .split("; ")
+    .find((cookie) => cookie.startsWith("rl_csrf="))
+    ?.slice("rl_csrf=".length);
+  if (cookieToken) return decodeURIComponent(cookieToken);
+
+  const response = await fetch("/api/v1/csrf", {
+    headers: { Accept: "application/json" },
+    credentials: "same-origin",
+  });
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new ApiError("A security token could not be issued.", response.status);
+  }
+  if (!response.ok || typeof body !== "object" || body === null) {
+    throw toApiError(response, body);
+  }
+  const token = (body as { csrf_token?: unknown }).csrf_token;
+  if (typeof token !== "string" || token.length === 0) {
+    throw new ApiError("A security token could not be issued.", response.status);
+  }
+  return token;
 }
 
 export interface ReadinessResponse {

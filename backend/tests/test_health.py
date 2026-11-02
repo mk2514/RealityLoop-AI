@@ -27,6 +27,7 @@ def test_readiness_reports_each_dependency(monkeypatch) -> None:
     monkeypatch.setattr(health, "check_database", lambda: True)
     monkeypatch.setattr(health, "check_redis", lambda: True)
     monkeypatch.setattr(health, "check_object_storage", lambda: True)
+    monkeypatch.setattr(health, "check_smtp", lambda: True)
 
     response = client.get("/api/v1/health/ready")
 
@@ -36,6 +37,7 @@ def test_readiness_reports_each_dependency(monkeypatch) -> None:
         "mongodb": "ready",
         "redis": "ready",
         "object_storage": "ready",
+        "smtp": "ready",
     }
 
 
@@ -43,12 +45,25 @@ def test_readiness_is_unavailable_when_a_dependency_is_down(monkeypatch) -> None
     monkeypatch.setattr(health, "check_database", lambda: True)
     monkeypatch.setattr(health, "check_redis", lambda: False)
     monkeypatch.setattr(health, "check_object_storage", lambda: True)
+    monkeypatch.setattr(health, "check_smtp", lambda: True)
 
     response = client.get("/api/v1/health/ready")
 
     assert response.status_code == 503
     assert response.json()["status"] == "not_ready"
     assert response.json()["dependencies"]["redis"] == "unavailable"
+
+
+def test_readiness_is_unavailable_when_smtp_is_down(monkeypatch) -> None:
+    monkeypatch.setattr(health, "check_database", lambda: True)
+    monkeypatch.setattr(health, "check_redis", lambda: True)
+    monkeypatch.setattr(health, "check_object_storage", lambda: True)
+    monkeypatch.setattr(health, "check_smtp", lambda: False)
+
+    response = client.get("/api/v1/health/ready")
+
+    assert response.status_code == 503
+    assert response.json()["dependencies"]["smtp"] == "unavailable"
 
 
 def test_http_errors_use_structured_request_aware_shape() -> None:

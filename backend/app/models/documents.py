@@ -21,10 +21,16 @@ class OrganizationDocument(MongoDocument):
 class UserDocument(MongoDocument):
     email: str = Field(min_length=3, max_length=320)
     full_name: str = Field(min_length=1, max_length=200)
+    password_hash: str | None = Field(default=None, min_length=20, max_length=512)
     email_verified_at: datetime | None = None
 
 
 class MembershipDocument(MongoDocument):
     organization_id: ObjectId
     user_id: ObjectId
-    role: Literal["owner", "admin", "member", "viewer"]
+    role: Literal["owner", "administrator", "engineer", "operator", "viewer"]
+
+
+class FactoryDocument(MongoDocument):
+    organization_id: ObjectId
+    name: str = Field(min_length=1, max_length=160)
