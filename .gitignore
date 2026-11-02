@@ -1,6 +1,5 @@
 .env
 .env.*
-!.env.example
 node_modules/
 frontend/node_modules/
 /dist/
@@ -15,3 +14,5 @@ venv/
 backend/.coverage
 backend/htmlcov/
 *.egg-info/
+.env*
+!.env.example
