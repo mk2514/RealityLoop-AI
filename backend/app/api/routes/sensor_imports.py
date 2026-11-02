@@ -5,6 +5,7 @@ import logging
 import math
 import re
 import secrets
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -29,12 +30,26 @@ from app.telemetry.csv_format import DELIMITERS, detect_csv_dialect
 from app.telemetry.readings import as_utc
 from app.telemetry.storage import PrivateStorageUnavailable, get_storage_client
 from app.worker.sensor_imports import process_sensor_import
+from app.worker.photo_analysis import process_historical_analysis_job
 
 router = APIRouter(dependencies=[Depends(require_csrf)])
 logger = logging.getLogger(__name__)
 IMPORT_ROLES = ("owner", "administrator", "engineer")
 CSV_CONTENT_TYPES = {"text/csv", "application/csv", "application/vnd.ms-excel"}
 SAFE_FILENAME = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+class HistoricalAnalysisRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    evidence_summary: dict[str, Any] = Field(max_length=20)
+
+    @field_validator("evidence_summary")
+    @classmethod
+    def bounded_evidence(cls, value: dict[str, Any]) -> dict[str, Any]:
+        encoded = str(value)
+        if len(encoded) > 12_000:
+            raise ValueError("The evidence summary is too large; do not send raw CSV rows.")
+        return value
 
 
 class ImportMapping(BaseModel):
@@ -413,6 +428,65 @@ def get_sensor_import(
     if record is None:
         raise HTTPException(status_code=404, detail="Import was not found.")
     return {"import": _serialize_import(record)}
+
+
+@router.post("/historical-replay/analysis", status_code=202)
+def create_historical_analysis(
+    payload: HistoricalAnalysisRequest,
+    principal: Principal = Depends(require_roles(*IMPORT_ROLES)),
+) -> dict[str, Any]:
+    settings = get_settings()
+    job_id = ObjectId()
+    now = datetime.now(UTC)
+    job = {
+        "_id": job_id,
+        "organization_id": principal.organization_id,
+        "created_by": principal.user_id,
+        "status": "queued",
+        "attempt_count": 0,
+        "provider": "gemini" if settings.gemini_api_key else "unconfigured",
+        "evidence_summary": payload.evidence_summary,
+        "created_at": now,
+        "updated_at": now,
+    }
+    get_database().historical_analysis_jobs.insert_one(job)
+    if not settings.gemini_api_key:
+        get_database().historical_analysis_jobs.update_one(
+            {"_id": job_id, "organization_id": principal.organization_id},
+            {"$set": {"status": "missing_key", "error": {"code": "missing_key", "message": "Gemini key is not configured for the worker."}, "updated_at": now}},
+        )
+        return {"job_id": str(job_id), "status": "missing_key"}
+    try:
+        process_historical_analysis_job.delay(str(job_id))
+    except OperationalError:
+        get_database().historical_analysis_jobs.update_one(
+            {"_id": job_id, "organization_id": principal.organization_id},
+            {"$set": {"status": "provider_outage", "error": {"code": "provider_outage", "message": "The analysis worker is unavailable."}, "updated_at": datetime.now(UTC)}},
+        )
+        return {"job_id": str(job_id), "status": "provider_outage"}
+    return {"job_id": str(job_id), "status": "queued"}
+
+
+@router.get("/historical-replay/analysis/{job_id}")
+def get_historical_analysis(
+    job_id: str,
+    principal: Principal = Depends(get_current_principal),
+) -> dict[str, Any]:
+    try:
+        object_id = ObjectId(job_id)
+    except InvalidId as error:
+        raise HTTPException(status_code=404, detail="Historical analysis job was not found.") from error
+    job = get_database().historical_analysis_jobs.find_one(
+        {"_id": object_id, "organization_id": principal.organization_id}
+    )
+    if job is None:
+        raise HTTPException(status_code=404, detail="Historical analysis job was not found.")
+    return {
+        "job_id": str(job["_id"]),
+        "status": job["status"],
+        "result": job.get("result"),
+        "error": job.get("error"),
+    }
 
 
 @router.get("/sensor-imports/{import_id}/errors")

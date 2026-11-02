@@ -938,3 +938,29 @@ def test_opcua_mapping_rejects_implicit_units_and_bad_timestamps() -> None:
     )
     with pytest.raises(ValueError, match="no timezone-aware"):
         opcua_edge.mapped_reading(mapping, invalid_time)
+
+
+def test_historical_analysis_missing_key_and_tenant_scope(import_environment, monkeypatch) -> None:
+    database = import_environment["database"]
+    org_id = import_environment["org_id"]
+    user_id = import_environment["user_id"]
+    principal = _principal(user_id, org_id)
+    payload = sensor_imports.HistoricalAnalysisRequest(
+        evidence_summary={
+            "dataset": "MetroPT3 local source subset",
+            "tp3_observed_mean_bar": 8.5,
+            "sample_count": 218,
+        }
+    )
+    result = sensor_imports.create_historical_analysis(payload, principal=principal)
+    assert result["status"] == "missing_key"
+
+    job = database.historical_analysis_jobs.find_one({"organization_id": org_id})
+    assert job is not None
+    visible = sensor_imports.get_historical_analysis(str(job["_id"]), principal=principal)
+    assert visible["status"] == "missing_key"
+
+    other_org = _principal(ObjectId(), ObjectId())
+    with pytest.raises(Exception) as exc:
+        sensor_imports.get_historical_analysis(str(job["_id"]), principal=other_org)
+    assert getattr(exc.value, "status_code", None) == 404

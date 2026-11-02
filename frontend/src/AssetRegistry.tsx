@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, apiRequest } from "./api";
 import { LineModelEditor } from "./LineModelEditor";
 import { SensorImports } from "./SensorImports";
+import { MetroReplay } from "./MetroReplay";
 
 type RegistryAsset = {
   id: string;
@@ -879,6 +880,13 @@ export function AssetRegistry({
             );
           })()}
         </section>
+      )}
+      {activeMachine && !activeMachine.archived_at && (
+        <MetroReplay
+          canEdit={canEdit}
+          machineId={activeMachine.id}
+          machineName={activeMachine.name}
+        />
       )}
       {activeLine && !activeLine.archived_at && (
         <section className="mt-6 border border-rule bg-white/35 p-5">

@@ -142,6 +142,32 @@ export function SensorImports({
     setPreview((current) => current ? { ...current, mapping_confirmed: false } : current);
   };
 
+  function applyMetroPreset() {
+    if (!preview) return;
+    const lowerName = sensorName.toLowerCase();
+    const valueColumn = lowerName.includes("tp3")
+      ? "TP3"
+      : lowerName.includes("motor") || lowerName.includes("current")
+        ? "Motor_current"
+        : lowerName.includes("comp") || lowerName.includes("state") || lowerName.includes("air intake")
+          ? "COMP"
+          : mapping.value_column;
+    const pressureColumn = ["TP2", "TP3", "H1", "DV_pressure", "Reservoirs"].includes(valueColumn);
+    const fixedUnit = pressureColumn ? "bar" : valueColumn === "Oil_temperature" ? "C" : valueColumn === "Motor_current" ? "A" : valueColumn === "COMP" ? "state" : registeredUnit;
+    setMapping((current) => ({
+      ...current,
+      timestamp_column: preview.headers.includes("timestamp") ? "timestamp" : current.timestamp_column,
+      timestamp_timezone: "UTC",
+      value_column: preview.headers.includes(valueColumn) ? valueColumn : current.value_column,
+      fixed_unit: fixedUnit,
+      unit_column: null,
+      fixed_sensor_id: sensorId,
+      sensor_column: null,
+      source_event_id_column: preview.headers.find((header) => header.trim() === "") ?? null,
+    }));
+    setPreview((current) => current ? { ...current, mapping_confirmed: false } : current);
+  }
+
   async function previewFile(confirmed: boolean) {
     if (!file) return;
     setBusy(true);
@@ -286,6 +312,9 @@ export function SensorImports({
               <p className="text-sm">
                 {preview.rows_total.toLocaleString()} data rows · delimiter {preview.delimiter}
               </p>
+              <button className="secondary-button justify-self-start" disabled={busy} onClick={applyMetroPreset} type="button">
+                APPLY METROPT-3 PRESET
+              </button>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="form-field">
                   <span>Timestamp column</span>

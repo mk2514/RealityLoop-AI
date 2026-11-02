@@ -19,3 +19,4 @@ backend/htmlcov/
 .env*
 !.env.example
 examples/esp32-conveyor/src/secrets.h
+MetroPT3.csv

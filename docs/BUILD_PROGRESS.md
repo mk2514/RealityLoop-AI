@@ -1,5 +1,24 @@
 # Build progress
 
+## MetroPT3 historical replay demo
+
+### Completed
+
+- Added a bounded 218-row MetroPT3 source subset fixture with the original header and source-record index under `backend/tests/fixtures/sensor-imports/metropt3_demo.csv`; the full raw CSV remains untracked.
+- Added `MetroReplay` to the saved-machine dashboard with CSV timestamp validation, source-window selection, TP3/current/COMP synchronized replay, tenant-scoped importer mapping and traceable evidence.
+- Added a MetroPT-3 preset to the existing sensor importer for `TP3`, `Motor_current`, `COMP`, timestamp timezone and fixed units.
+- Added past-only held-out TP3 comparison using the last-value baseline, explicit sample size and absolute error.
+- Added an organization-scoped, worker-queued Gemini evidence-analysis endpoint. The worker receives only a bounded evidence summary, not raw readings.
+- Added missing-key/provider-outage numerical fallbacks and documented COMP=1 semantics.
+
+### Verification
+
+- Raw MetroPT3 streaming found 1,516,948 rows; timestamps from `2020-02-01 00:00:00` through `2020-09-01 03:59:50`; no invalid timestamps; the observed cadence is predominantly 10 seconds.
+- The bounded fixture covers source-record IDs 1400 through 3570 and timestamps `2020-02-01 00:23:08` through `2020-02-01 00:58:58`.
+- `python -m pytest backend/tests/test_sensor_imports.py -q`: 13 passed.
+- Frontend production build and Vitest regression run passed: 2 test files, 5 tests; model/CSV validation checks passed.
+- Browser click path, live MongoDB/Celery/Redis storage, provider Gemini and hardware replay are pending credentials/services.
+
 ## Twin validation for saved line versions
 
 ### Completed
