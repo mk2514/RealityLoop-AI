@@ -9,6 +9,10 @@ export interface ApiErrorBody {
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api/v1").replace(/\/+$/, "");
 const API_CONFIGURED = Boolean(import.meta.env.VITE_API_BASE_URL) || import.meta.env.DEV;
 
+export function apiUrl(path: string): string {
+  return `${API_BASE_URL}${path}`;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,

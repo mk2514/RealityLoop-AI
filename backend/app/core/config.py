@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     simulation_max_events: int = Field(default=100_000, gt=0, le=1_000_000)
     simulation_max_event_log_bytes: int = Field(default=25 * 1024 * 1024, gt=0, le=100 * 1024 * 1024)
     simulation_wall_timeout_seconds: int = Field(default=300, gt=0, le=3_600)
+    dashboard_max_range_seconds: int = Field(default=31 * 24 * 60 * 60, gt=0, le=365 * 24 * 60 * 60)
+    dashboard_raw_max_rows: int = Field(default=5_000, gt=0, le=100_000)
+    dashboard_max_buckets: int = Field(default=1_000, gt=0, le=10_000)
+    dashboard_export_max_rows: int = Field(default=10_000, gt=0, le=100_000)
     session_cookie_name: str = "rl_session"
     csrf_cookie_name: str = "rl_csrf"
     session_ttl_seconds: int = Field(default=60 * 60 * 12, gt=0)

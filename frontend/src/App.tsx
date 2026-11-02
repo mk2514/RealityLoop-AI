@@ -1,9 +1,13 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { ApiError, apiRequest } from "./api";
 import { AssetRegistry } from "./AssetRegistry";
 import { navigate } from "./router";
 import faviconUrl from "./landing/assets/favicon.svg";
 import { SimulationRuns } from "./SimulationRuns";
+
+const DashboardCharts = lazy(() =>
+  import("./DashboardCharts").then((module) => ({ default: module.DashboardCharts })),
+);
 
 type OrganizationInfo = { id: string; name: string; slug: string; role: string };
 type DashboardData = {
@@ -400,6 +404,9 @@ function DashboardPage() {
                 onSignOut={logout}
                 role={dashboard.organization.role}
               />
+              <Suspense fallback={<p className="font-mono text-sm">LOADING OBSERVED DATA…</p>}>
+                <DashboardCharts />
+              </Suspense>
               <SimulationRuns />
 
               <aside className="border border-rule bg-white/40 p-6" aria-labelledby="onboarding-title">

@@ -1,5 +1,21 @@
 # Build progress
 
+## Layer 9 — Machine and sensor dashboards (in progress)
+
+### Completed
+
+- Added an organization-scoped dashboard hierarchy for factory → line → machine → component → sensor.
+- Added bounded raw and server-side bucketed observed-reading APIs, canonical UTC storage, provenance drill-down, CSV export, display timezone/unit conversion, sensor freshness and gap metadata.
+- Added Apache ECharts to `/app/dashboard`, synchronized chart controls, gap-safe null series and saved per-user panel layouts.
+- Added versioned threshold-rule storage, station-to-sensor overlay mappings and simulation-overlay eligibility checks.
+- Added MongoDB migration `0009_dashboards`.
+
+### Verification
+
+- Backend gate suite passed 57 tests after the Layer 9 implementation additions.
+- Frontend production build passed.
+- Live MongoDB, managed provider credentials, ECharts browser rendering and cross-tenant dashboard HTTP calls remain to be verified with provider credentials.
+
 ## Layer 1 — Application foundation
 
 ### Completed

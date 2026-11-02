@@ -12,6 +12,7 @@ from app.db.migrations.versions import v0005_rate_windows
 from app.db.migrations.versions import v0006_sensor_readings
 from app.db.migrations.versions import v0007_device_ingestion
 from app.db.migrations.versions import v0008_simulation_runs
+from app.db.migrations.versions import v0009_dashboards
 
 MIGRATIONS = (
     v0001_identity_foundation,
@@ -22,6 +23,7 @@ MIGRATIONS = (
     v0006_sensor_readings,
     v0007_device_ingestion,
     v0008_simulation_runs,
+    v0009_dashboards,
 )
 
 
