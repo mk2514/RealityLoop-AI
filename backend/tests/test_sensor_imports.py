@@ -945,6 +945,11 @@ def test_historical_analysis_missing_key_and_tenant_scope(import_environment, mo
     org_id = import_environment["org_id"]
     user_id = import_environment["user_id"]
     principal = _principal(user_id, org_id)
+    monkeypatch.setattr(
+        sensor_imports.process_historical_analysis_job,
+        "delay",
+        lambda job_id: None,
+    )
     payload = sensor_imports.HistoricalAnalysisRequest(
         evidence_summary={
             "dataset": "MetroPT3 local source subset",
@@ -953,12 +958,12 @@ def test_historical_analysis_missing_key_and_tenant_scope(import_environment, mo
         }
     )
     result = sensor_imports.create_historical_analysis(payload, principal=principal)
-    assert result["status"] == "missing_key"
+    assert result["status"] == "queued"
 
     job = database.historical_analysis_jobs.find_one({"organization_id": org_id})
     assert job is not None
     visible = sensor_imports.get_historical_analysis(str(job["_id"]), principal=principal)
-    assert visible["status"] == "missing_key"
+    assert visible["status"] == "queued"
 
     other_org = _principal(ObjectId(), ObjectId())
     with pytest.raises(Exception) as exc:

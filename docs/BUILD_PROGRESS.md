@@ -1,5 +1,26 @@
 # Build progress
 
+## Integration fixes from review baseline
+
+### Completed
+
+- Regenerated production and development lockfiles with Python 3.12; clean production/dev environments now install only the corresponding lockfile.
+- Corrected `MetroReplay` to consume the real factory → line → machine → component → sensor hierarchy.
+- Added zero-mapping rejection, accepted import IDs, import-status refresh, and pending Gemini refresh while preserving numerical replay.
+- Removed API-process Gemini key gating; analysis jobs are queued independently and worker credentials determine the provider result.
+- Added FormData-safe frontend requests without an implicit JSON `Content-Type` or multipart boundary.
+- Added an authenticated dashboard photo workflow that submits consented multipart images, polls job status, shows the schema-validated draft, and saves only on explicit confirmation to the selected normal line version.
+- Updated DEMO startup commands and backend test launcher selection.
+
+### Verification
+
+- Python 3.12 production lock: installed only `backend/requirements.lock`; `pip check` passed and `app.main` imported.
+- Python 3.12 development lock: installed only `backend/requirements-dev.lock`; `pip check` passed and `62` backend tests passed.
+- `npm test`: frontend build, Vitest and model/CSV checks passed; `5` Vitest tests and the model suite passed.
+- `npm run build:frontend`: passed.
+- `npm run test:backend`: passed with `62` backend tests.
+- Live MongoDB replica set, Redis/Celery broker, SMTP, S3-compatible storage, a paid Gemini call, paid hardware and browser live-service smoke were not run without those local services/credentials.
+
 ## MetroPT3 historical replay demo
 
 ### Completed

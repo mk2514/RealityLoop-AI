@@ -8,6 +8,23 @@ From the repository root:
 docker compose up --build
 ```
 
+For a checkout without Docker services, start the existing frontend and backend separately:
+
+```powershell
+py -3.12 -m venv backend/.venv-dev
+backend/.venv-dev/Scripts/python.exe -m pip install --upgrade pip
+backend/.venv-dev/Scripts/python.exe -m pip install -r backend/requirements-dev.lock
+backend/.venv-dev/Scripts/python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000
+```
+
+In another terminal:
+
+```powershell
+npm install --prefix frontend
+$env:VITE_API_BASE_URL="http://127.0.0.1:8000/api/v1"
+npm run dev:frontend
+```
+
 For local frontend-only development, use the existing backend/Vite commands documented in `README.md`. Do not commit or upload the full MetroPT3 CSV. The bounded source subset is kept under `backend/tests/fixtures/sensor-imports/metropt3_demo.csv`.
 
 ## Dataset selection

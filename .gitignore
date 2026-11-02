@@ -11,6 +11,7 @@ frontend/playwright-report/
 __pycache__/
 .pytest_cache/
 .venv/
+backend/.venv*/
 venv/
 *.py[cod]
 backend/.coverage

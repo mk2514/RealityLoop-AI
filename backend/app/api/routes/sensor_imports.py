@@ -435,7 +435,6 @@ def create_historical_analysis(
     payload: HistoricalAnalysisRequest,
     principal: Principal = Depends(require_roles(*IMPORT_ROLES)),
 ) -> dict[str, Any]:
-    settings = get_settings()
     job_id = ObjectId()
     now = datetime.now(UTC)
     job = {
@@ -444,26 +443,20 @@ def create_historical_analysis(
         "created_by": principal.user_id,
         "status": "queued",
         "attempt_count": 0,
-        "provider": "gemini" if settings.gemini_api_key else "unconfigured",
+        "provider": "gemini",
         "evidence_summary": payload.evidence_summary,
         "created_at": now,
         "updated_at": now,
     }
     get_database().historical_analysis_jobs.insert_one(job)
-    if not settings.gemini_api_key:
-        get_database().historical_analysis_jobs.update_one(
-            {"_id": job_id, "organization_id": principal.organization_id},
-            {"$set": {"status": "missing_key", "error": {"code": "missing_key", "message": "Gemini key is not configured for the worker."}, "updated_at": now}},
-        )
-        return {"job_id": str(job_id), "status": "missing_key"}
     try:
         process_historical_analysis_job.delay(str(job_id))
     except OperationalError:
         get_database().historical_analysis_jobs.update_one(
             {"_id": job_id, "organization_id": principal.organization_id},
-            {"$set": {"status": "provider_outage", "error": {"code": "provider_outage", "message": "The analysis worker is unavailable."}, "updated_at": datetime.now(UTC)}},
+            {"$set": {"status": "broker_failure", "error": {"code": "broker_unavailable", "message": "The Redis/Celery broker could not accept the analysis job."}, "updated_at": datetime.now(UTC)}},
         )
-        return {"job_id": str(job_id), "status": "provider_outage"}
+        return {"job_id": str(job_id), "status": "broker_failure"}
     return {"job_id": str(job_id), "status": "queued"}
 
 

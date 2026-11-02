@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { ApiError, apiRequest } from "./api";
 import { AssetRegistry } from "./AssetRegistry";
+import { PhotoLineStarter } from "./PhotoLineStarter";
 import { navigate } from "./router";
 import faviconUrl from "./landing/assets/favicon.svg";
 import { SimulationRuns } from "./SimulationRuns";
@@ -407,6 +408,7 @@ function DashboardPage() {
                 onSignOut={logout}
                 role={dashboard.organization.role}
               />
+              <PhotoLineStarter />
               <Suspense fallback={<p className="font-mono text-sm">LOADING OBSERVED DATA…</p>}>
                 <DashboardCharts />
               </Suspense>
