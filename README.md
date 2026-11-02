@@ -78,7 +78,7 @@ These settings are also recorded in [`vercel.json`](./vercel.json). The only con
 The Render API and Celery worker are independent services. When preparing that later deployment, use the backend setup and credential requirements below. To keep the current `SameSite=Strict` session and CSRF cookies reliable, use HTTPS custom domains on the same registrable domain, for example `app.example.com` on Vercel and `api.example.com` on Render. The default `*.vercel.app` and `*.onrender.com` addresses are different sites and are not a supported production authentication pairing.
 
 1. Provision the services listed under [Required credentials and service settings](#required-credentials-and-service-settings). MongoDB must support transactions; Redis must provide a TLS `rediss://` URL.
-2. Apply [`render.yaml`](./render.yaml) as a Render Blueprint; configure its private environment group and custom API domain.
+2. Apply [`render.yaml`](./render.yaml) as a Render Blueprint; configure the required environment variables separately on both the API and worker services, then configure the custom API domain.
 3. Run migrations once as a serialized release step. In Render Shell, install `requirements.lock` from the `backend` root and run `python -m app.db.migrations.runner`.
 4. Configure the Vercel `VITE_API_BASE_URL` value above, and set `PUBLIC_APP_URL` and `FRONTEND_ORIGINS` to the final HTTPS frontend origin in Render.
 5. Test registration, verification, login, logout and protected requests against the deployed services. API readiness remains unavailable until its required services connect.
@@ -99,9 +99,9 @@ These are **later backend service credentials/settings, not a collection of AI A
 | `PUBLIC_APP_URL` | Render API email links | Set to the deployed HTTPS frontend origin, e.g. `https://app.example.com`. |
 | `FRONTEND_ORIGINS` | Render API credentialed CORS | Set the exact comma-separated HTTPS frontend origin(s), e.g. `https://app.example.com`; no wildcard. Keep frontend and API on HTTPS subdomains of the same registrable domain for `SameSite=Strict` auth cookies. |
 | `VITE_API_BASE_URL` | Vercel frontend build, only after Render is ready | Set to the API URL including prefix, e.g. `https://api.example.com/api/v1`. This is not a credential and can be visible in browser assets. |
-| `ENVIRONMENT=production`, `COOKIE_SECURE=true` | Render API and worker | Already set in the Render Blueprint environment group. Keep secure cookies enabled. |
+| `ENVIRONMENT=production`, `COOKIE_SECURE=true` | Render API and worker | Set directly in each Render service's environment settings. Keep secure cookies enabled. |
 
-Render's `sync: false` prompts are for sensitive service values and origins; populate them in Render's environment group, not in Git. For local testing, use `.env.example` as the root `.env` template. Rotate any credentials that were accidentally committed or shared.
+The Blueprint does not define or attach a shared environment group. Enter the applicable values from this table directly in the Render API and worker environment settings; keep credentials out of Git. For local testing, use `.env.example` as the root `.env` template. Rotate any credentials that were accidentally committed or shared.
 
 No Vercel token, Render API key, browser API key, or separate session-signing key is needed for Git-connected deployments and the current application. Platform API tokens are only needed if you later automate deployments outside the provider's Git integration. Do not provide AI provider keys unless a future layer explicitly adds an AI-backed feature.
 

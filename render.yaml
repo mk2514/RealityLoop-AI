@@ -1,63 +1,3 @@
-envVarGroups:
-  - name: realityloop-production
-    envVars:
-      - key: ENVIRONMENT
-        value: production
-      - key: LOG_LEVEL
-        value: INFO
-      - key: COOKIE_SECURE
-        value: "true"
-      - key: MONGO_DATABASE
-        value: realityloop
-      - key: FRONTEND_ORIGINS
-        sync: false
-      - key: PUBLIC_APP_URL
-        sync: false
-      - key: MONGO_URI
-        sync: false
-      - key: REDIS_URL
-        sync: false
-      - key: S3_BUCKET
-        sync: false
-      - key: S3_REGION
-        value: us-east-1
-      - key: S3_ENDPOINT_URL
-        value: ""
-      - key: S3_ACCESS_KEY_ID
-        sync: false
-      - key: S3_SECRET_ACCESS_KEY
-        sync: false
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
-        value: "587"
-      - key: SMTP_USERNAME
-        sync: false
-      - key: SMTP_PASSWORD
-        sync: false
-      - key: SMTP_SENDER
-        sync: false
-      - key: SMTP_STARTTLS
-        value: "true"
-      - key: SMTP_SSL
-        value: "false"
-      - key: SESSION_TTL_SECONDS
-        value: "43200"
-      - key: VERIFICATION_TTL_SECONDS
-        value: "86400"
-      - key: PASSWORD_RESET_TTL_SECONDS
-        value: "3600"
-      - key: AUTH_RATE_LIMIT_WINDOW_SECONDS
-        value: "900"
-      - key: AUTH_LOGIN_LIMIT
-        value: "10"
-      - key: AUTH_REGISTER_LIMIT
-        value: "5"
-      - key: AUTH_RECOVERY_LIMIT
-        value: "4"
-      - key: AUTH_VERIFICATION_LIMIT
-        value: "5"
-
 services:
   - type: web
     name: realityloop-api
@@ -67,8 +7,6 @@ services:
     buildCommand: pip install -r requirements.lock
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/v1/health/live
-    envVars:
-      - fromGroup: realityloop-production
 
   - type: worker
     name: realityloop-worker
@@ -77,5 +15,3 @@ services:
     plan: starter
     buildCommand: pip install -r requirements.lock
     startCommand: celery -A app.worker.celery_app:celery_app worker --loglevel=INFO
-    envVars:
-      - fromGroup: realityloop-production
