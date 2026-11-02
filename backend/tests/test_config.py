@@ -60,6 +60,7 @@ def test_production_settings_accept_secure_cookie_smtp_and_database_configuratio
         environment="production",
         cookie_secure=True,
         public_app_url="https://app.example.test",
+        frontend_origins="https://app.example.test",
         smtp_host="smtp.example.test",
         smtp_starttls=True,
         mongo_uri="mongodb+srv://app-user:password@cluster.example.test/realityloop",
@@ -70,6 +71,37 @@ def test_production_settings_accept_secure_cookie_smtp_and_database_configuratio
     )
 
     assert settings.environment == "production"
+    assert settings.cors_origins == ["https://app.example.test"]
+
+
+def test_production_settings_require_explicit_https_frontend_origins() -> None:
+    with pytest.raises(ValidationError, match="FRONTEND_ORIGINS"):
+        Settings(
+            _env_file=None,
+            environment="production",
+            cookie_secure=True,
+            public_app_url="https://app.example.test",
+            frontend_origins="http://app.example.test",
+            smtp_host="smtp.example.test",
+            smtp_starttls=True,
+            mongo_uri="mongodb+srv://app:secret@cluster.example.test/realityloop",
+            redis_url="rediss://redis.example.test:6380/0",
+            s3_bucket="realityloop-assets",
+            s3_access_key_id="test-access-key",
+            s3_secret_access_key="test-secret-key",
+        )
+
+
+def test_frontend_origins_are_split_and_normalized() -> None:
+    settings = Settings(
+        _env_file=None,
+        frontend_origins=" https://app.example.test/ , https://admin.example.test ",
+    )
+
+    assert settings.cors_origins == [
+        "https://app.example.test",
+        "https://admin.example.test",
+    ]
 
 
 def test_production_settings_reject_local_mailpit(monkeypatch) -> None:

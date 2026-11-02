@@ -18,9 +18,3 @@ dependencies = [
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q"
-
-[tool.vercel]
-entrypoint = "app.main:app"
-
-[[tool.vercel.subscribers]]
-entrypoint = "app.worker.celery_app:celery_app"

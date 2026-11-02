@@ -6,6 +6,8 @@ export interface ApiErrorBody {
   };
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api/v1").replace(/\/+$/, "");
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -29,11 +31,11 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
     headers.set("X-CSRF-Token", await getCsrfToken());
   }
 
-  const response = await fetch(`/api/v1${path}`, {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     method,
     headers,
-    credentials: "same-origin",
+    credentials: "include",
   });
 
   if (!response.ok) {
@@ -62,9 +64,9 @@ async function getCsrfToken(): Promise<string> {
     ?.slice("rl_csrf=".length);
   if (cookieToken) return decodeURIComponent(cookieToken);
 
-  const response = await fetch("/api/v1/csrf", {
+  const response = await fetch(`${API_BASE_URL}/csrf`, {
     headers: { Accept: "application/json" },
-    credentials: "same-origin",
+    credentials: "include",
   });
   let body: unknown;
   try {
@@ -117,9 +119,9 @@ function toApiError(response: Response, body: unknown): ApiError {
 }
 
 export async function getReadiness(): Promise<ReadinessResponse> {
-  const response = await fetch("/api/v1/health/ready", {
+  const response = await fetch(`${API_BASE_URL}/health/ready`, {
     headers: { Accept: "application/json" },
-    credentials: "same-origin",
+    credentials: "include",
   });
   let body: unknown;
   try {

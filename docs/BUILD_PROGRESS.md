@@ -54,8 +54,8 @@
 - Added React Flow editing for sources, sinks, machines, buffers, branching/merging routes, rework rules, recipes, operations, multiple resource requirements, and transfer assumptions.
 - Added validation for connectivity, ports, capacities, bounded rework, cycles, machine compatibility, required process steps, and invalid transfer assumptions.
 - Added undo/redo, immutable version snapshots, history loading, save state, and revision-based optimistic concurrency.
-- Added Vercel Services routing: static frontend/landing assets and FastAPI share one deployment origin at `/` + `/app` + `/api/v1`.
-- Configured production/preview Celery tasks for Vercel Queues and retained Redis for local Celery and authentication limits.
+- Initially configured Vercel Services for a same-origin full stack; that deployment approach was replaced by the split Vercel + Render architecture below.
+- Configured Celery with Redis as the broker; the worker is deployed separately from the API.
 - Replaced local container configuration with provider-neutral MongoDB, Redis, SMTP, and S3-compatible environment configuration.
 
 ### Verification
@@ -69,8 +69,8 @@
 
 ### Known limitations
 
-- MongoDB transaction behavior, SMTP delivery, storage access, and same-origin routing remain unverified against live services.
-- Vercel Queues is beta. The repository currently defines only a health-check task; no production background workflows have been implemented.
+- MongoDB transaction behavior, SMTP delivery, and storage access remain unverified against live services.
+- The initial Vercel Queues configuration was removed in the split-deployment update. Render runs a Redis-backed worker, but no production background workflows beyond the health-check task have been implemented.
 - Production still requires external MongoDB with transaction support, TLS Redis, SMTP, and an S3-compatible bucket. Migrations must run explicitly as a serialized release step.
 - The editor validates and stores the factory model but does not yet simulate production or calculate validated equipment physics.
 
@@ -87,8 +87,9 @@
 ### Verification
 
 - `npm test` — includes TypeScript production build, WebGL-disabled fallback and keyboard-selection tests, saved-model update rendering, and landing-page regression tests.
-- `npm run test:backend` — 36 passed; saved-version endpoint and existing organization isolation coverage remain green.
+- `npm run test:backend` — 38 passed after adding split-deployment origin validation.
 - `npm --prefix frontend run build:vercel` — passed; landing root, `/app` entry, landing favicon, and lazy 3D-review chunk are present in the combined output.
+- `npm audit` — 0 frontend dependency vulnerabilities.
 - The 3D review chunk is 524 KB minified (133 KB gzip) and is loaded on demand; Vite reports its standard 500 KB chunk-size warning.
 - Vercel CLI deployment, physical WebGL hardware/browser rendering, and managed-service checks remain unverified.
 
@@ -97,6 +98,23 @@
 - Geometry is a review visualization only, not a validated physics model or operational simulation.
 - The 3D view requires WebGL; browsers without it receive a static, selectable SVG schematic and can return to 2D editing.
 - Machine/component details reflect current organization-scoped asset records, while layout and connections come from the selected immutable line snapshot.
+
+## Deployment architecture update — Vercel frontend + Render backend
+
+### Completed
+
+- Changed Vercel to build and serve only the preserved landing page and React `/app` output.
+- Added Render Blueprint definitions for the FastAPI web service and Redis-backed Celery worker, sharing a private environment-variable group.
+- Made the frontend API base URL a Vercel build-time setting and enabled explicit credentialed CORS origins in FastAPI.
+- Documented that production frontend/API domains must be HTTPS subdomains of one registrable domain to preserve current `SameSite=Strict` authentication cookies.
+- Added production config validation for explicit HTTPS frontend origins and a Vercel build check requiring the HTTPS Render API URL.
+- Updated the credential setup guide; secrets are to be entered only into local ignored `.env` and provider environment settings.
+
+### Pending
+
+- User must provision MongoDB, TLS Redis, SMTP and S3-compatible storage, configure custom frontend/API domains, and enter provider credentials before live connectivity can be tested.
+- Frontend tests/build and backend unit/integration tests pass; Vercel and Render deployments, provider blueprint validation, production migrations, and cross-origin cookie/auth flows have not been run.
+- Applying the Render Blueprint uses Starter services; review Render's current pricing and approve charges before provisioning.
 
 ### Next layer
 

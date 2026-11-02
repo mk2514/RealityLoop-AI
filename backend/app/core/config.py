@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     )
     mongo_auth_source: str = ""
     redis_url: str = "redis://localhost:6379/0"
+    frontend_origins: str = Field(default="", validation_alias="FRONTEND_ORIGINS")
     s3_endpoint_url: str = Field(default="", validation_alias="S3_ENDPOINT_URL")
     s3_region: str = Field(default="us-east-1", validation_alias="S3_REGION")
     s3_bucket: str = Field(default="", validation_alias="S3_BUCKET")
@@ -61,6 +62,12 @@ class Settings(BaseSettings):
                 raise ValueError("COOKIE_SECURE must be enabled in production.")
             if not self.public_app_url.startswith("https://"):
                 raise ValueError("PUBLIC_APP_URL must use HTTPS in production.")
+            if not self.cors_origins or any(
+                not origin.startswith("https://") for origin in self.cors_origins
+            ):
+                raise ValueError(
+                    "FRONTEND_ORIGINS must list HTTPS frontend origins in production."
+                )
             if (
                 not self.smtp_host
                 or self.smtp_host.lower() in {"localhost", "mailpit"}
@@ -95,6 +102,14 @@ class Settings(BaseSettings):
             if self.s3_endpoint_url and not self.s3_endpoint_url.startswith("https://"):
                 raise ValueError("Production S3_ENDPOINT_URL must use HTTPS.")
         return self
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [
+            origin.strip().rstrip("/")
+            for origin in self.frontend_origins.split(",")
+            if origin.strip()
+        ]
 
 
 @lru_cache
