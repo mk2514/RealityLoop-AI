@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {OrbitControls} from './assets/OrbitControls.js';
 
 export function createFactory(container,{hero=false,onSelect=()=>{}}={}){
+ let disposed=false,animationFrame,resizeObserver,intersectionObserver;
  const scene=new THREE.Scene();scene.background=new THREE.Color(0xf5f5ee);
  const camera=new THREE.OrthographicCamera(-20,20,12,-12,.1,200);camera.position.set(24,20,28);camera.lookAt(0,0,0);
  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.outputColorSpace=THREE.SRGBColorSpace;container.appendChild(renderer.domElement);
@@ -20,7 +21,7 @@ export function createFactory(container,{hero=false,onSelect=()=>{}}={}){
  const edgeMat=new THREE.LineBasicMaterial({color:0x343c2c,transparent:true,opacity:.85});
  const hiddenInk=new THREE.LineBasicMaterial({color:0x5a6450,transparent:true,opacity:.045,depthTest:false,depthWrite:false});const groups=[],pickables=[],products=[],arms=[];let selected=0,running=!matchMedia('(prefers-reduced-motion: reduce)').matches,parallel=false,visible=true;
  const line=new THREE.Group();scene.add(line);
- const media=matchMedia('(prefers-reduced-motion: reduce)');let motionEnabled=document.documentElement.dataset.motion?document.documentElement.dataset.motion==='running':!media.matches;running=motionEnabled;controls.enableDamping=motionEnabled;
+ const media=matchMedia('(prefers-reduced-motion: reduce)'),motionRoot=container.closest('.landing-page')||document.documentElement;let motionEnabled=motionRoot.dataset.motion?motionRoot.dataset.motion==='running':!media.matches;running=motionEnabled;controls.enableDamping=motionEnabled;
  let revealTime=motionEnabled?0:1.2,clock=0,cameraTween=null;
  const revealPlane=new THREE.Plane(new THREE.Vector3(-1,0,0),-17);renderer.clippingPlanes=motionEnabled?[revealPlane]:[];
  const labels=[];const machineNames=['CNC CUTTING','DRILLING','ASSEMBLY','INSPECTION','PACKAGING'];
@@ -69,10 +70,11 @@ export function createFactory(container,{hero=false,onSelect=()=>{}}={}){
  function select(i){selected=i;if(!motionEnabled)selection.position.x=groups[i].position.x;labels.forEach((l,j)=>l.el.classList.toggle('selected',i===j));}
  function reset(){moveCamera(new THREE.Vector3(hero?23:22,hero?17:22,hero?27:30));camera.zoom=1;camera.updateProjectionMatrix();controls.update()}
  function resize(){const width=container.clientWidth,height=container.clientHeight;if(!width||!height)return;const aspect=width/height;const half=aspect<1.4?17/aspect:10;camera.left=-half*aspect;camera.right=half*aspect;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();renderer.setSize(width,height,false)}
- new ResizeObserver(resize).observe(container);const observer=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting},{rootMargin:'150px'});observer.observe(container);
- container.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','+','-','='].includes(e.key))return;e.preventDefault();if(['+','='].includes(e.key))camera.zoom=Math.min(2.6,camera.zoom*1.1);else if(e.key==='-')camera.zoom=Math.max(.65,camera.zoom/1.1);else {const angle=e.key==='ArrowLeft'?.1:e.key==='ArrowRight'?-.1:0;camera.position.applyAxisAngle(new THREE.Vector3(0,1,0),angle);if(e.key==='ArrowUp')camera.position.y+=1;if(e.key==='ArrowDown')camera.position.y=Math.max(2,camera.position.y-1)}camera.updateProjectionMatrix();controls.update()});
+ resizeObserver=new ResizeObserver(resize);resizeObserver.observe(container);intersectionObserver=new IntersectionObserver(entries=>{visible=entries[0].isIntersecting},{rootMargin:'150px'});intersectionObserver.observe(container);
+ function onKeydown(e){if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','+','-','='].includes(e.key))return;e.preventDefault();if(['+','='].includes(e.key))camera.zoom=Math.min(2.6,camera.zoom*1.1);else if(e.key==='-')camera.zoom=Math.max(.65,camera.zoom/1.1);else {const angle=e.key==='ArrowLeft'?.1:e.key==='ArrowRight'?-.1:0;camera.position.applyAxisAngle(new THREE.Vector3(0,1,0),angle);if(e.key==='ArrowUp')camera.position.y+=1;if(e.key==='ArrowDown')camera.position.y=Math.max(2,camera.position.y-1)}camera.updateProjectionMatrix();controls.update()}
+ container.addEventListener('keydown',onKeydown);
  let last=performance.now();const projected=new THREE.Vector3();
- function animate(now){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;if(!visible||document.hidden)return;
+ function animate(now){if(disposed)return;animationFrame=requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;if(!visible||document.hidden)return;
  if(motionEnabled&&revealTime<1.2){revealTime+=dt;revealPlane.constant=-17+35*Math.min(revealTime/1.2,1);if(revealTime>=1.2)renderer.clippingPlanes=[];}
  if(cameraTween){cameraTween.elapsed+=dt;const t=Math.min(cameraTween.elapsed/.7,1),ease=1-Math.pow(1-t,3);camera.position.lerpVectors(cameraTween.from,cameraTween.to,ease);controls.target.lerpVectors(cameraTween.fromTarget,cameraTween.target,ease);if(t===1)cameraTween=null;}
  if(running&&motionEnabled){clock+=dt;for(const p of products){p.position.x+=dt*1.1;if(p.position.x>13.4)p.position.x=-13.4}for(const a of arms)a.rotation.y=Math.sin(clock*.7)*.3;}
@@ -80,6 +82,6 @@ export function createFactory(container,{hero=false,onSelect=()=>{}}={}){
  controls.update();renderer.render(scene,camera);
  for(const label of labels){projected.copy(label.point).project(camera);label.el.style.left=((projected.x*.5+.5)*container.clientWidth)+'px';label.el.style.top=((-projected.y*.5+.5)*container.clientHeight)+'px';label.el.style.visibility=projected.z>1||Math.abs(projected.x)>1.05||revealTime<.8?'hidden':'visible';}
  }
- camera.position.set(hero?23:22,hero?17:22,hero?27:30);select(0);controls.update();resize();requestAnimationFrame(animate);
- return {select,reset,setParallel(value){parallel=value;extra.visible=value},setView(view){if(view==='top'){moveCamera(new THREE.Vector3(.01,40,.01),new THREE.Vector3(0,0,0));camera.zoom=1;camera.updateProjectionMatrix();controls.update()}else reset()},toggle(){if(!motionEnabled)return false;running=!running;return running},get running(){return running}};
+ camera.position.set(hero?23:22,hero?17:22,hero?27:30);select(0);controls.update();resize();animationFrame=requestAnimationFrame(animate);
+ return {select,reset,setParallel(value){parallel=value;extra.visible=value},setView(view){if(view==='top'){moveCamera(new THREE.Vector3(.01,40,.01),new THREE.Vector3(0,0,0));camera.zoom=1;camera.updateProjectionMatrix();controls.update()}else reset()},toggle(){if(!motionEnabled)return false;running=!running;return running},get running(){return running},dispose(){if(disposed)return;disposed=true;cancelAnimationFrame(animationFrame);resizeObserver.disconnect();intersectionObserver.disconnect();container.removeEventListener('keydown',onKeydown);document.removeEventListener('realityloop:motion',onMotion);controls.dispose();const geometries=new Set(),materials=new Set();scene.traverse(object=>{if(object.geometry)geometries.add(object.geometry);if(object.material){for(const material of Array.isArray(object.material)?object.material:[object.material])materials.add(material)}});for(const geometry of geometries)geometry.dispose();for(const material of materials)material.dispose();renderer.dispose();container.replaceChildren()}};
 }

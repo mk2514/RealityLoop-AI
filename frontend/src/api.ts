@@ -7,6 +7,7 @@ export interface ApiErrorBody {
 }
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api/v1").replace(/\/+$/, "");
+const API_CONFIGURED = Boolean(import.meta.env.VITE_API_BASE_URL) || import.meta.env.DEV;
 
 export class ApiError extends Error {
   constructor(
@@ -20,7 +21,19 @@ export class ApiError extends Error {
   }
 }
 
+function requireBackendConfiguration(): void {
+  if (!API_CONFIGURED) {
+    throw new ApiError(
+      "The backend service is not connected to this frontend yet. Registration, sign-in, and workspace actions will be available after the backend is deployed.",
+      503,
+      undefined,
+      "service_unavailable",
+    );
+  }
+}
+
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  requireBackendConfiguration();
   const method = (init?.method ?? "GET").toUpperCase();
   const headers = new Headers(init?.headers);
   headers.set("Accept", "application/json");
@@ -119,6 +132,7 @@ function toApiError(response: Response, body: unknown): ApiError {
 }
 
 export async function getReadiness(): Promise<ReadinessResponse> {
+  requireBackendConfiguration();
   const response = await fetch(`${API_BASE_URL}/health/ready`, {
     headers: { Accept: "application/json" },
     credentials: "include",

@@ -63,7 +63,7 @@
 - `npm run test:backend` — 36 passed, including migrations, organization isolation, graph persistence, snapshot history, stale-write rejection, routing validation, and readiness checks.
 - `npm test` — passed; landing-page model, CSV, and demo regressions.
 - `npm --prefix frontend test` — passed.
-- `npm --prefix frontend run build:vercel` — passed; TypeScript check, production build, and combined landing/application output.
+- The original combined Vercel build passed at delivery; its copy-based packaging step is superseded by the unified build documented below.
 - Verified the combined build output contains the landing root, `/app` entry, and landing favicon.
 - Vercel CLI was not installed, so `vercel dev` and an actual deployment were not run. No external service credentials were available for runtime checks.
 
@@ -88,7 +88,7 @@
 
 - `npm test` — includes TypeScript production build, WebGL-disabled fallback and keyboard-selection tests, saved-model update rendering, and landing-page regression tests.
 - `npm run test:backend` — 38 passed after adding split-deployment origin validation.
-- `npm --prefix frontend run build:vercel` — passed; landing root, `/app` entry, landing favicon, and lazy 3D-review chunk are present in the combined output.
+- The production build passed; landing root, `/app` entry, landing favicon, and lazy 3D-review chunk were present in the combined output.
 - `npm audit` — 0 frontend dependency vulnerabilities.
 - The 3D review chunk is 524 KB minified (133 KB gzip) and is loaded on demand; Vite reports its standard 500 KB chunk-size warning.
 - Vercel CLI deployment, physical WebGL hardware/browser rendering, and managed-service checks remain unverified.
@@ -105,9 +105,9 @@
 
 - Changed Vercel to build and serve only the preserved landing page and React `/app` output.
 - Added Render Blueprint definitions for the FastAPI web service and Redis-backed Celery worker, sharing a private environment-variable group.
-- Made the frontend API base URL a Vercel build-time setting and enabled explicit credentialed CORS origins in FastAPI.
+- Made the frontend API base URL an optional Vercel build-time setting and enabled explicit credentialed CORS origins in FastAPI.
 - Documented that production frontend/API domains must be HTTPS subdomains of one registrable domain to preserve current `SameSite=Strict` authentication cookies.
-- Added production config validation for explicit HTTPS frontend origins and a Vercel build check requiring the HTTPS Render API URL.
+- Added production config validation for explicit HTTPS frontend origins and frontend validation of any supplied API URL; frontend-only builds may leave it unset.
 - Updated the credential setup guide; secrets are to be entered only into local ignored `.env` and provider environment settings.
 
 ### Pending
@@ -115,6 +115,34 @@
 - User must provision MongoDB, TLS Redis, SMTP and S3-compatible storage, configure custom frontend/API domains, and enter provider credentials before live connectivity can be tested.
 - Frontend tests/build and backend unit/integration tests pass; Vercel and Render deployments, provider blueprint validation, production migrations, and cross-origin cookie/auth flows have not been run.
 - Applying the Render Blueprint uses Starter services; review Render's current pricing and approve charges before provisioning.
+
+## Architecture follow-up — unified frontend (current)
+
+### Completed
+
+- Migrated the landing page markup, styles, Three.js factory, controls, demo logic, assets, and license into `frontend/src/landing/`; retained its browser-local storage keys and sample behavior.
+- Combined the public page and React application into one Vite document/root/router. `/` serves the landing page and `/app` serves the application; app subroutes preserve query parameters for verification and reset links.
+- Scoped landing CSS and DOM interactions to the mounted landing component, with cleanup on route changes. App styles, React Flow, and 3D review remain available.
+- Removed the old root `dist/` source tree and copy-based `frontend/scripts/build-vercel.mjs` after verifying the migrated page and build. `frontend/dist/` is now the sole generated production output.
+- Configured Vercel to install via the frontend lockfile, build once, serve `frontend/dist`, rewrite only `/app` routes, and leave `/api/v1` out of the frontend fallback.
+- Made `VITE_API_BASE_URL` optional for frontend-only deployment. An explicitly supplied invalid value fails validation; an unset value leaves public navigation and the browser-local demo usable and reports backend-dependent actions as unavailable.
+- Preserved the local Vite `/api/v1` proxy and documented the one frontend setting to add after Render is deployed.
+
+### Verification
+
+- `npm --prefix frontend ci` — passed; lockfile install completed with no reported dependency vulnerabilities.
+- `npm --prefix frontend test` — passed; TypeScript check/build, 2 Vitest files (5 tests), and the existing demo-model/CSV checks.
+- `VERCEL=1 npm --prefix frontend run build` with `VITE_API_BASE_URL` unset — passed.
+- The same production build with `VITE_API_BASE_URL=https://api.example.com/api/v1` — passed. This is a format check only, not a live API.
+- The environment validator accepted an unset and valid HTTPS API base and rejected an invalid value.
+- Local production preview checks covered `/`, `/app`, direct `/app` auth subroutes and query tokens, app navigation/history, responsive layout, reduced motion, demo configuration persistence, 3D canvases and controls, CSV import, and the explicit unavailable-backend state. No browser page errors or failed static-asset requests were observed.
+- Local `/api/v1` preview with no backend returned a plain-text 500 rather than the React document. The Vercel routing configuration contains no API rewrite.
+
+### Known limitations
+
+- Vercel CLI/deployment was not available; Vercel-specific rewrite behavior and a deployed site were not exercised. Local preview and build configuration were checked separately.
+- Render and its dependent MongoDB, Redis, SMTP, and object-storage services are not deployed or connected. No real account, saved workspace, or backend response was asserted.
+- When Render is ready, set `VITE_API_BASE_URL=https://<Render API domain>/api/v1` in Vercel's build environment and rebuild/redeploy.
 
 ### Next layer
 

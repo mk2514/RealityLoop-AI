@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { ApiError, apiRequest } from "./api";
 import { AssetRegistry } from "./AssetRegistry";
-import faviconUrl from "../../dist/assets/favicon.svg";
+import { navigate } from "./router";
+import faviconUrl from "./landing/assets/favicon.svg";
 
 type OrganizationInfo = { id: string; name: string; slug: string; role: string };
 type DashboardData = {
@@ -153,7 +154,7 @@ function LoginPage() {
         method: "POST",
         body: JSON.stringify({ email: values.email, password: values.password }),
       });
-      window.location.assign("/app/dashboard");
+      navigate("/app/dashboard");
     });
   }
 
@@ -350,7 +351,7 @@ function DashboardPage() {
   function logout() {
     void form.run(async () => {
       await apiRequest("/auth/logout", { method: "POST" });
-      window.location.assign("/app/login");
+      navigate("/app/login");
     });
   }
 

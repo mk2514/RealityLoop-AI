@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build",
-    "build:vercel": "node scripts/validate-vercel-env.mjs && npm run build && node scripts/build-vercel.mjs",
+    "build": "node scripts/validate-vercel-env.mjs && tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "npm run build && vitest run --environment jsdom && node ../tests/model.test.mjs"
   },

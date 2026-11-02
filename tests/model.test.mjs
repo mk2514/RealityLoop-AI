@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {capacity,validation,parseCSV,sampleSeries} from '../dist/model.js';
+import {capacity,validation,parseCSV,sampleSeries} from '../frontend/src/landing/model.js';
 const baseline=capacity();assert.equal(baseline.baseline.units,244);assert.equal(baseline.proposed.units,310);assert.equal(baseline.baseline.bottleneck,'Drilling');assert.equal(baseline.proposed.bottleneck,'Assembly');
 const noChange=capacity({parallel:false});assert.equal(noChange.baseline.units,noChange.proposed.units);
 const demand=capacity({demand:100});assert.equal(demand.baseline.units,100);assert.equal(demand.proposed.units,100);

@@ -1,9 +1,12 @@
 # Run RealityLoop AI locally
-Extract the ZIP first. Open a terminal in the folder containing this file.
-With Python 3 installed, run:
-```sh
-python -m http.server 8000 --bind 127.0.0.1 --directory dist
+
+From the repository root, install the frontend dependencies and start the unified Vite application:
+
+```powershell
+npm --prefix frontend ci
+npm run dev:frontend
 ```
-On Windows, use py instead of python if needed. Open http://localhost:8000 in your browser. Press Ctrl+C to stop.
-All application code and Three.js dependencies are included. No npm install, API keys or cloud account required. The 3D view needs WebGL. Open the site through localhost rather than double-clicking index.html.
-Upload the extracted files and folders to GitHub to track the editable project. The static web root is dist/.
+
+Open `http://localhost:5173`. The public landing page and browser-local sample demo are at `/`; the React application is at `/app`. The sample works without backend services or API keys. Account and workspace actions need the backend, which Vite proxies from `/api/v1` to `http://127.0.0.1:8001` when it is running.
+
+The 3D sample needs WebGL; its explanatory fallback and the rest of the demo remain usable when WebGL is unavailable. See [README.md](./README.md) for backend setup, tests, and Vercel deployment settings.
