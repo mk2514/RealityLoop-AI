@@ -17,6 +17,18 @@
 
 - The presentation twin is a visual demo and does not ingest ESP32/MQTT measurements or issue machine commands.
 
+## Public presentation demo route
+
+### Completed
+
+- Added `/app/demo`, a no-login presentation route that opens the conveyor digital twin immediately.
+- Added an `OPEN PRESENTATION DEMO` action to the application welcome screen.
+- The presentation controls remain usable without registration, authentication or backend services.
+
+### Verification
+
+- `npm test` passed: frontend production build, 3 Vitest files with 8 tests, and model/CSV checks.
+
 ## Integration fixes from review baseline
 
 ### Completed

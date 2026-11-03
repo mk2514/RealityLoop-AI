@@ -5,6 +5,7 @@ import { PhotoLineStarter } from "./PhotoLineStarter";
 import { navigate } from "./router";
 import faviconUrl from "./landing/assets/favicon.svg";
 import { SimulationRuns } from "./SimulationRuns";
+import { PresentationTwin } from "./PresentationTwin";
 
 const DashboardCharts = lazy(() =>
   import("./DashboardCharts").then((module) => ({ default: module.DashboardCharts })),
@@ -447,10 +448,28 @@ function WelcomePage() {
         Create an account and verify your email to set up an organization-scoped workspace. The public sample remains separate and is not copied into an account.
       </p>
       <div className="mt-7 flex flex-wrap gap-3">
+        <a className="action-button" href="/app/demo">OPEN PRESENTATION DEMO</a>
         <a className="action-button" href="/app/register">GET STARTED</a>
         <a className="secondary-button" href="/app/login">SIGN IN</a>
       </div>
     </AuthLayout>
+  );
+}
+
+function PresentationDemoPage() {
+  return (
+    <Shell>
+      <section className="mx-auto min-h-[72vh] max-w-7xl px-6 py-12">
+        <div className="mb-7 flex flex-wrap items-start justify-between gap-4 border-b border-rule pb-7">
+          <div>
+            <p className="font-mono text-xs tracking-[0.2em] text-accent">PUBLIC DEMONSTRATION / NO ACCOUNT REQUIRED</p>
+            <h1 className="mt-4 text-4xl font-semibold tracking-tight">Miniature conveyor twin</h1>
+          </div>
+          <a className="secondary-button" href="/app/register">CREATE WORKSPACE</a>
+        </div>
+        <PresentationTwin />
+      </section>
+    </Shell>
   );
 }
 
@@ -463,5 +482,6 @@ export default function App() {
   if (pathname === "/app/forgot-password") return <RecoveryPage />;
   if (pathname === "/app/reset-password") return <ResetPasswordPage />;
   if (pathname === "/app/dashboard") return <DashboardPage />;
+  if (pathname === "/app/demo") return <PresentationDemoPage />;
   return <WelcomePage />;
 }
