@@ -5,6 +5,10 @@
   "outputDirectory": "frontend/dist",
   "rewrites": [
     {
+      "source": "/api/v1/(.*)",
+      "destination": "https://realityloop-api.onrender.com/api/v1/$1"
+    },
+    {
       "source": "/app",
       "destination": "/index.html"
     },
