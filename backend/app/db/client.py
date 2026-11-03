@@ -13,8 +13,8 @@ def get_mongo_client() -> MongoClient:
     if settings.mongo_uri:
         return MongoClient(
             settings.mongo_uri,
-            serverSelectionTimeoutMS=1000,
-            connectTimeoutMS=1000,
+            serverSelectionTimeoutMS=10000,
+            connectTimeoutMS=5000,
             appname=settings.app_name,
         )
     return MongoClient(
@@ -23,8 +23,8 @@ def get_mongo_client() -> MongoClient:
         username=settings.mongo_username,
         password=settings.mongo_password,
         authSource=settings.mongo_auth_source or settings.mongo_database,
-        serverSelectionTimeoutMS=1000,
-        connectTimeoutMS=1000,
+        serverSelectionTimeoutMS=10000,
+        connectTimeoutMS=5000,
         appname=settings.app_name,
     )
 
