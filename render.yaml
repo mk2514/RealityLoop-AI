@@ -17,7 +17,7 @@ services:
       - key: MONGO_URI
         sync: false
       - key: MONGO_DATABASE
-        value: realityloop
+        value: RealityLoop
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT

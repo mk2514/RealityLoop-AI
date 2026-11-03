@@ -187,7 +187,7 @@ These are **later backend service credentials/settings, not a collection of AI A
 
 | Variable(s) | Needed for | How to obtain/configure |
 |---|---|---|
-| `MONGO_URI`, `MONGO_DATABASE` | Render API, worker and migrations | Create a MongoDB Atlas cluster with transaction support, create a least-privilege application database user, allow Render service egress in the Atlas network access list, and copy the authenticated `mongodb+srv://` URI. Set database name to `realityloop` unless choosing another consistently. |
+| `MONGO_URI`, `MONGO_DATABASE` | Render API, worker and migrations | Create a MongoDB Atlas cluster with transaction support, create a least-privilege application database user, allow Render service egress in the Atlas network access list, and copy the authenticated `mongodb+srv://` URI. Set database name to `RealityLoop` unless choosing another consistently; MongoDB names are case-sensitive. |
 | `REDIS_URL` | Render API, Celery worker and auth rate limits | Provision a reachable TLS Redis-compatible service and use its `rediss://` connection URL. The deployed API and worker must use the same Redis database/broker. |
 | `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Render API readiness and future object storage | Create a private bucket in AWS S3 or another S3-compatible provider. Create bucket-scoped credentials with only necessary access; `HeadBucket` must succeed. |
 | `S3_ENDPOINT_URL` | Render API, only for non-AWS S3-compatible storage | Copy the provider's HTTPS S3 endpoint. Leave empty for AWS S3. |

@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     mongo_uri: str = Field(default="", validation_alias="MONGO_URI")
     mongo_host: str = "localhost"
     mongo_port: int = 27017
-    mongo_database: str = "realityloop"
+    mongo_database: str = Field(default="RealityLoop", validation_alias="MONGO_DATABASE")
     mongo_username: str = Field(
         default="realityloop-app",
         validation_alias="MONGO_APP_USERNAME",
