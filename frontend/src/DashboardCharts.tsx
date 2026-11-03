@@ -46,6 +46,7 @@ export function DashboardCharts() {
   const [unit, setUnit] = useState("");
   const [result, setResult] = useState<ReadingResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [live, setLive] = useState(false);
   const [error, setError] = useState("");
   const [thresholdNotice, setThresholdNotice] = useState("");
 
@@ -112,17 +113,29 @@ export function DashboardCharts() {
     });
   }, [result]);
 
-  async function load() {
+  async function load(windowStart = start, windowEnd = end) {
     if (!sensorId) {
       setError("Select a sensor before loading readings.");
       return;
     }
+
+    useEffect(() => {
+      if (!live || !sensorId) return;
+      const refresh = window.setInterval(() => {
+        const endAt = new Date();
+        const startAt = new Date(endAt.getTime() - 15 * 60 * 1000);
+        setStart(startAt.toISOString().slice(0, 16));
+        setEnd(endAt.toISOString().slice(0, 16));
+        void load(startAt.toISOString().slice(0, 16), endAt.toISOString().slice(0, 16));
+      }, 5_000);
+      return () => window.clearInterval(refresh);
+    }, [live, sensorId]);
     setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams({
-        start: new Date(start).toISOString(),
-        end: new Date(end).toISOString(),
+        start: new Date(windowStart).toISOString(),
+        end: new Date(windowEnd).toISOString(),
         view,
         timezone,
       });
@@ -211,6 +224,10 @@ export function DashboardCharts() {
       </div>
       <div className="mt-4 flex flex-wrap gap-3">
         <button className="action-button" disabled={loading || !sensorId} onClick={() => void load()} type="button">{loading ? "LOADING…" : "LOAD READINGS"}</button>
+        <button className="secondary-button" disabled={!sensorId} onClick={() => {
+          setLive((current) => !current);
+          if (!live) void load();
+        }} type="button">{live ? "STOP LIVE" : "START LIVE"}</button>
         <button className="secondary-button" disabled={!sensorId || loading} onClick={exportCsv} type="button">EXPORT CSV</button>
         <button className="secondary-button" disabled={!sensorId || loading} onClick={() => void saveLayout()} type="button">SAVE PANEL</button>
       </div>

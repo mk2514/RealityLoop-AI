@@ -30,10 +30,19 @@ from app.db.client import close_mongo_client
 settings = get_settings()
 configure_logging(settings.log_level)
 logger = logging.getLogger(__name__)
+_mqtt_subscriber = None
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    global _mqtt_subscriber
+    if settings.mqtt_enabled:
+        from app.telemetry.mqtt_subscriber import start_mqtt_subscriber
+        _mqtt_subscriber = start_mqtt_subscriber()
+        logger.info("API MQTT telemetry subscriber connected.")
     yield
+    if _mqtt_subscriber is not None:
+        _mqtt_subscriber.stop()
+        _mqtt_subscriber = None
     close_mongo_client()
 
 

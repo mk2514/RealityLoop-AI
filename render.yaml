@@ -38,3 +38,11 @@ services:
         sync: false
       - key: FRONTEND_ORIGINS
         sync: false
+      - key: MQTT_ENABLED
+        value: "false"
+      - key: MQTT_BROKER_URL
+        sync: false
+      - key: MQTT_USERNAME
+        sync: false
+      - key: MQTT_PASSWORD
+        sync: false
