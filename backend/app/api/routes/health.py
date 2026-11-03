@@ -24,8 +24,12 @@ def check_database() -> bool:
     try:
         get_database().command("ping")
         return True
-    except PyMongoError:
-        logger.warning("Readiness check failed for mongodb")
+    except PyMongoError as error:
+        logger.warning(
+            "Readiness check failed for mongodb error_type=%s error_code=%s",
+            type(error).__name__,
+            getattr(error, "code", None),
+        )
         return False
 
 
