@@ -24,6 +24,7 @@
 - Added `/app/demo`, a no-login presentation route that opens the conveyor digital twin immediately.
 - Added an `OPEN PRESENTATION DEMO` action to the application welcome screen.
 - The presentation controls remain usable without registration, authentication or backend services.
+- The registration success screen now offers `OPEN PRESENTATION TWIN` and the welcome screen uses `CREATE WORKSPACE`.
 
 ### Verification
 

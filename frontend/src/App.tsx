@@ -104,6 +104,7 @@ function AuthLayout({
 
 function RegisterPage() {
   const form = useFormStatus();
+  const [created, setCreated] = useState(false);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -119,6 +120,7 @@ function RegisterPage() {
         }),
       });
       form.setMessage(`${result.message} Check the configured email inbox for a link.`);
+      setCreated(true);
     });
   }
 
@@ -146,6 +148,12 @@ function RegisterPage() {
         </button>
       </form>
       <Feedback error={form.error} message={form.message} />
+      {created && (
+        <div className="mt-7 border-t border-rule pt-5">
+          <p className="mb-4 text-sm text-ink/70">Workspace request created. Verify your email before signing in to the private workspace.</p>
+          <a className="action-button" href="/app/demo">OPEN PRESENTATION TWIN</a>
+        </div>
+      )}
       <p className="mt-7 border-t border-rule pt-5 text-sm text-ink/70">
         Already registered? <a className="text-link" href="/app/login">Sign in</a>
       </p>
@@ -449,7 +457,7 @@ function WelcomePage() {
       </p>
       <div className="mt-7 flex flex-wrap gap-3">
         <a className="action-button" href="/app/demo">OPEN PRESENTATION DEMO</a>
-        <a className="action-button" href="/app/register">GET STARTED</a>
+        <a className="action-button" href="/app/register">CREATE WORKSPACE</a>
         <a className="secondary-button" href="/app/login">SIGN IN</a>
       </div>
     </AuthLayout>
