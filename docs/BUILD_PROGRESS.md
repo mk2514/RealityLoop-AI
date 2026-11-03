@@ -1,5 +1,22 @@
 # Build progress
 
+## Presentation conveyor twin placement
+
+### Completed
+
+- Removed the presentation twin from the dashboard.
+- Added `PRESENTATION TWIN` to the production-line editor view switch, alongside `2D EDITOR` and `3D REVIEW`.
+- Added normal-speed, reduced-speed, pause/resume and reset-view controls with an explicit presentation/simulation label.
+
+### Verification
+
+- `npm test` passed: frontend production build, 3 Vitest files with 8 tests, and model/CSV checks.
+- Vite emitted only its existing large-chunk warning; no build or test failure occurred.
+
+### Known limitations
+
+- The presentation twin is a visual demo and does not ingest ESP32/MQTT measurements or issue machine commands.
+
 ## Integration fixes from review baseline
 
 ### Completed

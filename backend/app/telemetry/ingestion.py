@@ -199,11 +199,29 @@ def ingest_readings(
         key = reading["event_key"]
         index = first_index[key]
         status = statuses[key]
-        responses[index] = {
+        _is_accepted = status == "inserted"
+        _response: dict[str, Any] = {
             "index": index,
-            "status": "accepted" if status == "inserted" else "duplicate",
-            "code": "ACCEPTED" if status == "inserted" else "DUPLICATE_EXISTING",
+            "status": "accepted" if _is_accepted else "duplicate",
+            "code": "ACCEPTED" if _is_accepted else "DUPLICATE_EXISTING",
         }
+        if _is_accepted:
+            _response["_live"] = {
+                "organization_id": str(reading["organization_id"]),
+                "sensor_id": str(reading["sensor_id"]),
+                "machine_id": str(reading["machine_id"]),
+                "quantity": reading["quantity"],
+                "unit": reading["unit"],
+                "value": reading["value"],
+                "event_time_utc": reading["event_time_utc"].isoformat()
+                    if hasattr(reading["event_time_utc"], "isoformat")
+                    else str(reading["event_time_utc"]),
+                "received_at_utc": reading["received_at_utc"].isoformat()
+                    if hasattr(reading["received_at_utc"], "isoformat")
+                    else str(reading["received_at_utc"]),
+                "source": reading["source"],
+            }
+        responses[index] = _response
         for item_index in reading_indexes.get(key, []):
             responses[item_index] = {
                 "index": item_index,

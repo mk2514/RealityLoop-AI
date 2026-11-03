@@ -175,13 +175,16 @@ def _send_password_reset_email(email: str, token: str) -> None:
 def _set_auth_cookies(response: Response, session_token: str) -> None:
     settings = get_settings()
     csrf_token = create_token()
+    # Use SameSite=None when Secure is enabled so cookies flow cross-site
+    # (Vercel frontend -> Render API). SameSite=None requires Secure=True.
+    samesite = "none" if settings.cookie_secure else "strict"
     response.set_cookie(
         settings.session_cookie_name,
         session_token,
         max_age=settings.session_ttl_seconds,
         httponly=True,
         secure=settings.cookie_secure,
-        samesite="strict",
+        samesite=samesite,
         path=SESSION_COOKIE_PATH,
     )
     response.set_cookie(
@@ -190,26 +193,27 @@ def _set_auth_cookies(response: Response, session_token: str) -> None:
         max_age=settings.session_ttl_seconds,
         httponly=False,
         secure=settings.cookie_secure,
-        samesite="strict",
+        samesite=samesite,
         path=SESSION_COOKIE_PATH,
     )
 
 
 def _clear_auth_cookies(response: Response) -> None:
     settings = get_settings()
+    samesite = "none" if settings.cookie_secure else "strict"
     response.delete_cookie(
         settings.session_cookie_name,
         path=SESSION_COOKIE_PATH,
         secure=settings.cookie_secure,
         httponly=True,
-        samesite="strict",
+        samesite=samesite,
     )
     response.delete_cookie(
         settings.csrf_cookie_name,
         path=SESSION_COOKIE_PATH,
         secure=settings.cookie_secure,
         httponly=False,
-        samesite="strict",
+        samesite=samesite,
     )
 
 
@@ -325,13 +329,14 @@ def require_roles(*roles: str):
 def issue_csrf_token(response: Response) -> dict[str, str]:
     settings = get_settings()
     token = create_token()
+    samesite = "none" if settings.cookie_secure else "strict"
     response.set_cookie(
         settings.csrf_cookie_name,
         token,
         max_age=settings.session_ttl_seconds,
         httponly=False,
         secure=settings.cookie_secure,
-        samesite="strict",
+        samesite=samesite,
         path=SESSION_COOKIE_PATH,
     )
     return {"csrf_token": token}

@@ -16,5 +16,14 @@
       "source": "/app/(.*)",
       "destination": "/index.html"
     }
+  ],
+  "headers": [
+    {
+      "source": "/api/v1/live/stream",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store" },
+        { "key": "X-Accel-Buffering", "value": "no" }
+      ]
+    }
   ]
 }

@@ -19,6 +19,7 @@ from app.api.routes.dashboards import router as dashboards_router
 from app.api.routes.scenarios import router as scenarios_router
 from app.api.routes.photo_line_analysis import router as photo_line_analysis_router
 from app.api.routes.twin_validations import router as twin_validations_router
+from app.api.routes.live import router as live_router
 from app.api.routes.telemetry import (
     device_router as device_telemetry_router,
     session_router as session_telemetry_router,
@@ -39,6 +40,9 @@ async def lifespan(_: FastAPI):
         from app.telemetry.mqtt_subscriber import start_mqtt_subscriber
         _mqtt_subscriber = start_mqtt_subscriber()
         logger.info("API MQTT telemetry subscriber connected.")
+    import asyncio as _asyncio
+    from app.telemetry.live_fanout import set_event_loop as _set_event_loop
+    _set_event_loop(_asyncio.get_event_loop())
     yield
     if _mqtt_subscriber is not None:
         _mqtt_subscriber.stop()
@@ -75,6 +79,7 @@ app.include_router(dashboards_router, prefix="/api/v1")
 app.include_router(scenarios_router, prefix="/api/v1")
 app.include_router(photo_line_analysis_router, prefix="/api/v1")
 app.include_router(twin_validations_router, prefix="/api/v1")
+app.include_router(live_router, prefix="/api/v1")
 
 
 @app.middleware("http")

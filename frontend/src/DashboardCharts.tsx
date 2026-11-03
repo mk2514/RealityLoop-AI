@@ -113,23 +113,25 @@ export function DashboardCharts() {
     });
   }, [result]);
 
+  // Live-refresh interval — polls every 5 s when live mode is active
+  useEffect(() => {
+    if (!live || !sensorId) return;
+    const refresh = window.setInterval(() => {
+      const endAt = new Date();
+      const startAt = new Date(endAt.getTime() - 15 * 60 * 1000);
+      setStart(startAt.toISOString().slice(0, 16));
+      setEnd(endAt.toISOString().slice(0, 16));
+      void load(startAt.toISOString().slice(0, 16), endAt.toISOString().slice(0, 16));
+    }, 5_000);
+    return () => window.clearInterval(refresh);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, sensorId]);
+
   async function load(windowStart = start, windowEnd = end) {
     if (!sensorId) {
       setError("Select a sensor before loading readings.");
       return;
     }
-
-    useEffect(() => {
-      if (!live || !sensorId) return;
-      const refresh = window.setInterval(() => {
-        const endAt = new Date();
-        const startAt = new Date(endAt.getTime() - 15 * 60 * 1000);
-        setStart(startAt.toISOString().slice(0, 16));
-        setEnd(endAt.toISOString().slice(0, 16));
-        void load(startAt.toISOString().slice(0, 16), endAt.toISOString().slice(0, 16));
-      }, 5_000);
-      return () => window.clearInterval(refresh);
-    }, [live, sensorId]);
     setLoading(true);
     setError("");
     try {

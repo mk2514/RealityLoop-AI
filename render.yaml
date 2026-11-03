@@ -3,25 +3,35 @@ services:
     name: realityloop-api
     runtime: python
     rootDir: backend
-    plan: free            # free web services sleep after ~15 min idle; use starter to avoid cold starts
+    plan: free            # free web services sleep after ~15 min idle; upgrade to starter to avoid cold starts
     buildCommand: pip install -r requirements.lock
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/v1/health/live
     envVars:
       - key: ENVIRONMENT
         value: production
+
+      # Set true when Redis/S3/Celery are not provisioned yet (skips those checks)
       - key: MONGO_ONLY_INFRA
         value: "true"
+
+      # Cookies must be Secure in production (enables SameSite=None for cross-site Vercel->Render)
       - key: COOKIE_SECURE
         value: "true"
+
+      # MongoDB Atlas – set in Render dashboard, not committed to source
       - key: MONGO_URI
         sync: false
       - key: MONGO_DATABASE
         value: RealityLoop
+
+      # Gemini – set in Render dashboard
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
         value: gemini-3.5-flash
+
+      # SMTP – set in Render dashboard
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
@@ -34,10 +44,20 @@ services:
         sync: false
       - key: SMTP_STARTTLS
         value: "true"
+
+      # Public URLs – set after first deploy
+      # PUBLIC_APP_URL: the Vercel frontend URL (e.g. https://your-app.vercel.app)
+      # FRONTEND_ORIGINS: same value (used for CORS allow-origin)
       - key: PUBLIC_APP_URL
         sync: false
       - key: FRONTEND_ORIGINS
         sync: false
+
+      # Session TTL (12 hours)
+      - key: SESSION_TTL_SECONDS
+        value: "43200"
+
+      # MQTT – set to "true" and fill credentials when broker is ready
       - key: MQTT_ENABLED
         value: "false"
       - key: MQTT_BROKER_URL
@@ -45,4 +65,21 @@ services:
       - key: MQTT_USERNAME
         sync: false
       - key: MQTT_PASSWORD
+        sync: false
+
+      # Redis – only needed when MONGO_ONLY_INFRA=false
+      # Format: rediss://user:pass@host:6379/0  (TLS required in production)
+      - key: REDIS_URL
+        sync: false
+
+      # S3-compatible storage – only needed when MONGO_ONLY_INFRA=false
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
         sync: false

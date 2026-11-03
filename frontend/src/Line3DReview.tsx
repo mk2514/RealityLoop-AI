@@ -38,6 +38,8 @@ type Props = {
   onSelectNode: (nodeId: string) => void;
   replayEvents?: ReplayEvent[];
   replayRunLabel?: string;
+  /** Live sensor readings keyed by machine_id. Provided by useLiveReadings. */
+  liveReadings?: Record<string, { value: number; ts: number; stale: boolean }>;
 };
 
 export type ReplayEvent = {
@@ -439,13 +441,14 @@ function SchematicFallback({
 }
 
 export function Line3DReview(props: Props) {
-  const { nodes, edges, machines, selectedNodeId, onSelectNode } = props;
+  const { nodes, edges, machines, selectedNodeId, onSelectNode, liveReadings } = props;
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.OrthographicCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const nodeGroupsRef = useRef(new Map<string, THREE.Group>());
+  const bodyMeshRef = useRef(new Map<string, THREE.Mesh>());
   const outlineRef = useRef(new Map<string, THREE.LineSegments[]>());
   const selectedRef = useRef(selectedNodeId);
   const onSelectRef = useRef(onSelectNode);
@@ -572,7 +575,8 @@ export function Line3DReview(props: Props) {
       const location = worldPosition(node);
       group.position.copy(location);
       group.rotation.y = -(node.data.rotation * Math.PI) / 180;
-      addEquipmentGeometry(group, machineType(node, machines));
+      const bodyMesh = addEquipmentGeometry(group, machineType(node, machines));
+      if (node.data.machine_id) bodyMeshRef.current.set(node.data.machine_id, bodyMesh);
       const labelText = node.type === "buffer" && typeof node.data.buffer_capacity === "number"
         ? `${node.data.label} · CAP ${node.data.buffer_capacity}`
         : node.data.label;
@@ -673,6 +677,7 @@ export function Line3DReview(props: Props) {
       controlsRef.current = null;
       sceneRef.current = null;
       nodeGroupsRef.current.clear();
+      bodyMeshRef.current.clear();
       outlineRef.current.clear();
     };
   }, [nodes, edges, machines, cameraMode, resetCount]);
@@ -688,6 +693,30 @@ export function Line3DReview(props: Props) {
       rendererRef.current.render(sceneRef.current, cameraRef.current);
     }
   }, [selectedNodeId]);
+
+  // ── Live sensor colour overlay ────────────────────────────────────────────
+  // Mutates emissive colour only; never rebuilds geometry.
+  //   No reading  → emissive off (ivory base colour)
+  //   Stale       → dim grey emissive
+  //   Fresh       → faint green emissive
+  useEffect(() => {
+    for (const [machineId, mesh] of bodyMeshRef.current) {
+      const reading = liveReadings?.[machineId];
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      if (!reading) {
+        mat.emissiveIntensity = 0;
+      } else if (reading.stale) {
+        mat.emissive.set(0x444444);
+        mat.emissiveIntensity = 0.35;
+      } else {
+        mat.emissive.set(0x004400);
+        mat.emissiveIntensity = 0.45;
+      }
+    }
+    if (sceneRef.current && rendererRef.current && cameraRef.current) {
+      rendererRef.current.render(sceneRef.current, cameraRef.current);
+    }
+  }, [liveReadings]);
 
   function resetView() {
     setCameraMode("isometric");

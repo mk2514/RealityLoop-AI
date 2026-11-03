@@ -19,6 +19,7 @@ from app.core.config import get_settings
 from app.db.client import get_database
 from app.telemetry.devices import audit_device_event, sensor_state_payload
 from app.telemetry.ingestion import DeviceReading, ingest_readings
+from app.telemetry.live_fanout import fanout
 
 session_router = APIRouter(dependencies=[Depends(require_csrf)])
 device_router = APIRouter()
@@ -204,4 +205,8 @@ async def ingest_device_batch(
         actor_user_id=None,
         counts=counts,
     )
+    # Fanout accepted readings to any open SSE /live/stream connections
+    for item in final:
+        if item.get("status") == "accepted" and "_live" in item:
+            fanout(item["_live"])
     return {"results": final, "counts": counts, "source": "measured"}

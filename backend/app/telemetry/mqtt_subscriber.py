@@ -15,6 +15,7 @@ from app.core.config import get_settings
 from app.db.client import get_database
 from app.telemetry.devices import audit_device_event, authenticate_device_token
 from app.telemetry.ingestion import DeviceReading, ingest_readings
+from app.telemetry.live_fanout import fanout
 
 logger = logging.getLogger(__name__)
 MQTT_TOPIC_PREFIX = "realityloop/v1/organizations"
@@ -236,6 +237,10 @@ class MQTTIngestSubscriber:
                     self._request_reconnect()
                 else:
                     self.client.ack(message.mid, message.qos)
+                    # Fanout accepted readings to SSE subscribers
+                    for item in result.get("results", []):
+                        if item.get("status") == "accepted" and "_live" in item:
+                            fanout(item["_live"])
             finally:
                 self.messages.task_done()
 

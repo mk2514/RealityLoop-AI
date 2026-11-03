@@ -22,6 +22,7 @@ import {
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { ApiError, apiRequest } from "./api";
 import type { ReplayEvent, ReviewEdge, ReviewMachine, ReviewNode } from "./Line3DReview";
+import { useLiveReadings } from "./live/useLiveReadings";
 
 const Line3DReview = lazy(async () => {
   const module = await import("./Line3DReview");
@@ -30,6 +31,10 @@ const Line3DReview = lazy(async () => {
 const ReplayControls = lazy(async () => {
   const module = await import("./Line3DReview");
   return { default: module.ReplayControls };
+});
+const PresentationTwin = lazy(async () => {
+  const module = await import("./PresentationTwin");
+  return { default: module.PresentationTwin };
 });
 
 type NodeKind = "source" | "sink" | "machine" | "buffer";
@@ -332,12 +337,13 @@ function FlowCanvas({
   const [reviewModel, setReviewModel] = useState<EditorState | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewError, setReviewError] = useState("");
-  const [activeView, setActiveView] = useState<"editor" | "review">("editor");
+  const [activeView, setActiveView] = useState<"editor" | "review" | "presentation">("editor");
   const [replayMode, setReplayMode] = useState(false);
   const [replayRuns, setReplayRuns] = useState<Array<{run_id: string; status: string; seed: number; line_version: number; created_at: string}>>([]);
   const [replayRunId, setReplayRunId] = useState("");
   const [replayEvents, setReplayEvents] = useState<ReplayEvent[]>([]);
   const [replayLoading, setReplayLoading] = useState(false);
+  const { readings: liveReadings, connected: liveConnected } = useLiveReadings(import.meta.env.VITE_API_BASE_URL ?? "/api/v1");
   const [replayError, setReplayError] = useState("");
   const [twinValidations, setTwinValidations] = useState<TwinValidation[]>([]);
   const [twinLoading, setTwinLoading] = useState(false);
@@ -876,11 +882,15 @@ function FlowCanvas({
       <header className="line-editor-header">
         <div>
           <p className="font-mono text-xs tracking-widest text-accent">PRODUCTION MODEL / REVISION {revision}</p>
-          <h3 className="mt-2 text-xl font-semibold">{activeView === "editor" ? "2D line editor" : "3D line review"}</h3>
+          <h3 className="mt-2 text-xl font-semibold">
+            {activeView === "editor" ? "2D line editor" : activeView === "review" ? "3D line review" : "Presentation conveyor twin"}
+          </h3>
           <p className="mt-1 text-xs text-ink/60">
             {activeView === "editor"
               ? "Layout coordinates are visual; operation and transfer parameters are stored separately."
-              : "Review an immutable saved line version. Unsaved draft changes are excluded."}
+              : activeView === "review"
+                ? "Review an immutable saved line version. Unsaved draft changes are excluded."
+                : "Presentation-only miniature conveyor. Animation is simulated and not ESP32 telemetry."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -900,6 +910,14 @@ function FlowCanvas({
             type="button"
           >
             3D REVIEW
+          </button>
+          <button
+            aria-pressed={activeView === "presentation"}
+            className={activeView === "presentation" ? "action-button" : "secondary-button"}
+            onClick={() => setActiveView("presentation")}
+            type="button"
+          >
+            PRESENTATION TWIN
           </button>
           <button
             aria-pressed={motionPaused}
@@ -1250,6 +1268,14 @@ function FlowCanvas({
       </div>}
       </fieldset>
 
+      {activeView === "presentation" && (
+        <section className="mt-5" aria-label="Presentation conveyor digital twin">
+          <Suspense fallback={<p className="line-review-empty" role="status">Loading presentation twin…</p>}>
+            <PresentationTwin />
+          </Suspense>
+        </section>
+      )}
+
       {activeView === "review" && (
         <section className="line-review-panel" aria-label="Saved production-line 3D review">
           <div className="line-review-version">
@@ -1385,6 +1411,12 @@ function FlowCanvas({
           ) : reviewModel ? (
             <div className="line-review-workspace">
               <Suspense fallback={<p className="line-review-empty" role="status">Loading 3D review tools…</p>}>
+                <div className="mb-2 flex items-center gap-2">
+                  <span className={`inline-block h-2 w-2 rounded-full ${liveConnected ? "bg-green-600 animate-pulse" : "bg-ink/30"}`} />
+                  <span className="font-mono text-xs tracking-wider text-ink/70">
+                    {liveConnected ? "LIVE TELEMETRY STREAM ACTIVE" : "LIVE STREAM STANDBY"}
+                  </span>
+                </div>
                 <Line3DReview
                   edges={reviewEdges}
                   machines={reviewMachines}
@@ -1394,6 +1426,7 @@ function FlowCanvas({
                     setSelectedEdgeId(null);
                   }}
                   selectedNodeId={selectedNodeId}
+                  liveReadings={liveReadings}
                 />
               </Suspense>
               <aside className="line-model-panel line-asset-inspector" aria-label="Machine and component inspector">
