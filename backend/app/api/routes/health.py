@@ -20,17 +20,21 @@ def liveness(request: Request) -> dict[str, str]:
     return {"status": "alive", "request_id": request.state.request_id}
 
 
-def check_database() -> bool:
+def check_database_detail() -> tuple[bool, str | None, int | None]:
     try:
         get_database().command("ping")
-        return True
+        return True, None, None
     except PyMongoError as error:
         logger.warning(
             "Readiness check failed for mongodb error_type=%s error_code=%s",
             type(error).__name__,
             getattr(error, "code", None),
         )
-        return False
+        return False, type(error).__name__, getattr(error, "code", None)
+
+
+def check_database() -> bool:
+    return check_database_detail()[0]
 
 
 def check_redis() -> bool:
@@ -97,8 +101,13 @@ def check_smtp() -> bool:
 
 @router.get("/ready")
 def readiness(request: Request, response: Response) -> dict[str, object]:
+    mongodb_ready = check_database()
+    mongodb_error_type = None
+    mongodb_error_code = None
+    if not mongodb_ready:
+        _, mongodb_error_type, mongodb_error_code = check_database_detail()
     dependencies = {
-        "mongodb": check_database(),
+        "mongodb": mongodb_ready,
         "smtp": check_smtp(),
     }
     if not get_settings().mongo_only_infra:
@@ -112,5 +121,15 @@ def readiness(request: Request, response: Response) -> dict[str, object]:
             name: "ready" if available else "unavailable"
             for name, available in dependencies.items()
         },
+        **(
+            {
+                "mongodb_error": {
+                    "type": mongodb_error_type,
+                    "code": mongodb_error_code,
+                }
+            }
+            if not mongodb_ready
+            else {}
+        ),
         "request_id": request.state.request_id,
     }
