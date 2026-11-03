@@ -35,7 +35,7 @@ export function PhotoLineStarter() {
       setJob(result.job);
       if (result.job.status !== "queued" && result.job.status !== "processing") {
         if (result.job.draft) setDraftText(JSON.stringify(result.job.draft, null, 2));
-        if (result.job.status === "failed" || result.job.status === "missing_key") {
+        if (["failed", "missing_key", "provider_outage"].includes(result.job.status)) {
           setError(result.job.error?.message ?? "Photo analysis did not complete.");
         }
         return;
@@ -90,10 +90,12 @@ export function PhotoLineStarter() {
         `/lines/${encodeURIComponent(lineId)}/model`,
       );
       const stations = draft.stations ?? [];
+      const existingNodes = current.model.layout.nodes as Array<{ id: string; position?: { x: number; y: number } }>;
+      const offsetX = existingNodes.reduce((max, node) => Math.max(max, node.position?.x ?? 0), 0) + (existingNodes.length ? 260 : 0);
       const nodes = stations.map((station, index) => ({
-        id: station.candidate_id,
+        id: `photo-${jobId.slice(-6)}-${station.candidate_id}`,
         type: station.kind === "buffer" ? "buffer" : station.kind === "machine" ? "machine" : "machine",
-        position: { x: 140 + index * 220, y: 220 },
+        position: { x: 140 + offsetX + index * 220, y: 220 },
         rotation: 0,
         label: station.label,
         machine_id: null,
@@ -107,14 +109,14 @@ export function PhotoLineStarter() {
           model: {
             ...current.model,
             layout: {
-              nodes,
-              edges: [],
+              nodes: [...existingNodes, ...nodes],
+              edges: current.model.layout.edges,
               transfer_settings: current.model.layout.transfer_settings,
             },
           },
         }),
       });
-      setNotice(`Confirmed photo draft saved as normal line version ${result.revision}.`);
+      setNotice(`Confirmed photo draft appended to the existing layout (nothing removed) and saved as line version ${result.revision}.`);
     } catch (reason) {
       setError(reason instanceof ApiError || reason instanceof SyntaxError
         ? "The draft is invalid or the line could not be saved. No file was silently overwritten."

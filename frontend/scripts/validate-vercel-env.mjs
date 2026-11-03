@@ -1,6 +1,6 @@
 const apiBaseUrl = process.env.VITE_API_BASE_URL?.trim();
-const usesLocalProxy =
-  apiBaseUrl === "/api/v1" && process.env.VERCEL !== "1";
+// "/api/v1" is a same-origin path: locally via the Vite proxy, on Vercel via a vercel.json rewrite to the API.
+const usesLocalProxy = apiBaseUrl === "/api/v1";
 if (apiBaseUrl && !usesLocalProxy) {
   let url;
   try {

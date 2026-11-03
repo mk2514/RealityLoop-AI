@@ -37,6 +37,11 @@ function csvRows(text: string): { headers: string[]; rows: Array<Record<string, 
   return { headers, rows };
 }
 
+export function windowCsv(headers: string[], rows: Array<Record<string, string>>): string {
+  const body = rows.map((row) => headers.map((header) => row[header] ?? "").join(","));
+  return [headers.join(","), ...body].join("\n") + "\n";
+}
+
 export function MetroReplay({ machineId, machineName, canEdit }: {
   machineId: string;
   machineName: string;
@@ -57,7 +62,8 @@ export function MetroReplay({ machineId, machineName, canEdit }: {
   const [end, setEnd] = useState("");
   const [analysisStatus, setAnalysisStatus] = useState("");
   const [analysis, setAnalysis] = useState<Record<string, unknown> | null>(null);
-  const [importJobs, setImportJobs] = useState<Array<{ importId: string; status: string }>>([]);
+  type ImportCounts = { total: number; inserted: number; duplicates: number; rejected: number };
+  const [importJobs, setImportJobs] = useState<Array<{ importId: string; status: string; counts?: ImportCounts }>>([]);
   const [analysisJobId, setAnalysisJobId] = useState("");
 
   useEffect(() => {
@@ -107,13 +113,20 @@ export function MetroReplay({ machineId, machineName, canEdit }: {
       { sensorId: currentId, column: "Motor_current", unit: "A" },
       { sensorId: compId, column: "COMP", unit: "state" },
     ].filter((item) => item.sensorId && headers.includes(item.column));
+    if (!selectedRows.length) {
+      setError("No source readings fall inside the selected window. No import was submitted.");
+      setBusy(false);
+      return;
+    }
     if (!mappings.length) {
       setError("Map at least one CSV column to an existing sensor before importing. No import was submitted.");
       setBusy(false);
       return;
     }
     try {
-      const accepted: Array<{ importId: string; status: string }> = [];
+      const accepted: Array<{ importId: string; status: string; counts?: ImportCounts }> = [];
+      // Upload exactly the rows inside the selected window so the stored data matches the chart and the Gemini evidence.
+      const windowBody = new Blob([windowCsv(headers, selectedRows)], { type: "text/csv" });
       for (const item of mappings) {
         const body = new Headers({
           "Content-Type": "text/csv",
@@ -131,13 +144,13 @@ export function MetroReplay({ machineId, machineName, canEdit }: {
         });
         const result = await apiRequest<{ import: { import_id: string; status: string } }>(`/sensor-imports?sensor_id=${encodeURIComponent(item.sensorId)}`, {
           method: "POST",
-          body: file,
+          body: windowBody,
           headers: body,
         });
         accepted.push({ importId: result.import.import_id, status: result.import.status });
       }
       setImportJobs(accepted);
-      setNotice(`${accepted.length} import${accepted.length === 1 ? "" : "s"} accepted and queued for ${file.name}.`);
+      setNotice(`${accepted.length} import${accepted.length === 1 ? "" : "s"} accepted and queued for ${selectedRows.length} rows of ${file.name}. Queued is not completed: refresh the status to see stored counts.`);
     } catch (reason) {
       setError(reason instanceof ApiError ? reason.message : "The historical import could not be queued.");
     } finally {
@@ -151,7 +164,7 @@ export function MetroReplay({ machineId, machineName, canEdit }: {
       setError("No source readings fall inside the selected window.");
       return;
     }
-    const chart = echarts.init(chartRef.current);
+    const chart = echarts.getInstanceByDom(chartRef.current) ?? echarts.init(chartRef.current);
     chart.setOption({
       backgroundColor: "transparent",
       tooltip: { trigger: "axis" },
@@ -163,9 +176,13 @@ export function MetroReplay({ machineId, machineName, canEdit }: {
         { name: "Motor current (A)", type: "line", showSymbol: false, data: selectedRows.map((row) => Number(row.Motor_current)) },
         { name: "COMP state", type: "line", showSymbol: false, yAxisIndex: 1, data: selectedRows.map((row) => Number(row.COMP)) },
       ],
-    });
+    }, true);
     setError("");
   }
+
+  useEffect(() => () => {
+    if (chartRef.current) echarts.getInstanceByDom(chartRef.current)?.dispose();
+  }, []);
 
   const selectedRows = useMemo(() => rows.filter((row) => {
       const time = row.timestamp.replace(" ", "T");
@@ -189,13 +206,13 @@ export function MetroReplay({ machineId, machineName, canEdit }: {
 
   async function refreshImportJobs() {
     if (!importJobs.length) return;
-    const refreshed: Array<{ importId: string; status: string }> = [];
+    const refreshed: Array<{ importId: string; status: string; counts?: ImportCounts }> = [];
     try {
       for (const item of importJobs) {
-        const result = await apiRequest<{ import: { status: string } }>(
+        const result = await apiRequest<{ import: { status: string; counts?: ImportCounts } }>(
           `/sensor-imports/${encodeURIComponent(item.importId)}`,
         );
-        refreshed.push({ importId: item.importId, status: result.import.status });
+        refreshed.push({ importId: item.importId, status: result.import.status, counts: result.import.counts });
       }
       setImportJobs(refreshed);
       setNotice("Import status refreshed.");
@@ -289,7 +306,7 @@ export function MetroReplay({ machineId, machineName, canEdit }: {
           {importJobs.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
               <span>Accepted import IDs:</span>
-              {importJobs.map((job) => <code key={job.importId}>{job.importId}: {job.status}</code>)}
+              {importJobs.map((job) => <code key={job.importId}>{job.importId}: {job.status}{job.counts ? ` · stored ${job.counts.inserted}, duplicates ${job.counts.duplicates}, rejected ${job.counts.rejected} of ${job.counts.total}` : ""}</code>)}
               <button className="secondary-button" onClick={() => void refreshImportJobs()} type="button">REFRESH IMPORT STATUS</button>
             </div>
           )}

@@ -122,7 +122,7 @@ async def create_photo_job(
         "schema_version": 1,
         "consent_confirmed": True,
         "attempt_count": 0,
-        "provider": "gemini" if settings.gemini_api_key else "unconfigured",
+        "provider": "gemini",  # the API key lives only on the worker; the worker reports missing_key
     }
     try:
         database.photo_line_jobs.insert_one(job)

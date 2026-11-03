@@ -3,6 +3,7 @@ from typing import Any, Literal
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
+from kombu.exceptions import OperationalError
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.routes.auth import Principal, get_current_principal, require_csrf, require_roles
@@ -150,9 +151,26 @@ def create_simulation_run(
     if payload.run_idempotency_key:
         record["run_idempotency_key"] = payload.run_idempotency_key
     database.simulation_runs.insert_one(record)
-    from app.worker.simulation_runs import execute_simulation_run
-    execute_simulation_run.delay(run_id)
+    _dispatch_run(database, record["_id"], run_id, principal.organization_id)
     return {"run": _serialize(record)}
+
+
+def _dispatch_run(database: Any, object_id: Any, run_id: str, organization_id: Any) -> None:
+    """Enqueue a run; if the broker is down, mark it failed instead of leaving it queued."""
+    from app.worker.simulation_runs import execute_simulation_run
+
+    try:
+        execute_simulation_run.delay(run_id)
+    except OperationalError as error:
+        database.simulation_runs.update_one(
+            {"_id": object_id, "organization_id": organization_id, "status": "queued"},
+            {"$set": {
+                "status": "failed",
+                "error": {"code": "queue_unavailable", "message": "The background worker could not be reached. Retry this run.", "details": []},
+                "updated_at": datetime.now(UTC),
+            }},
+        )
+        raise HTTPException(status_code=503, detail="The background worker is unavailable. The run was recorded as failed; retry it.") from error
 
 
 @router.get("/simulation/runs")
@@ -222,6 +240,5 @@ def retry_simulation_run(
         {"$set": {"status": "queued", "cancel_requested": False, "error": None, "updated_at": now}},
     )
     run = database.simulation_runs.find_one({"_id": run["_id"], "organization_id": principal.organization_id})
-    from app.worker.simulation_runs import execute_simulation_run
-    execute_simulation_run.delay(run_id)
+    _dispatch_run(database, run["_id"], run_id, principal.organization_id)
     return {"run": _serialize(run)}

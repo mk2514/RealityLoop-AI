@@ -183,7 +183,7 @@ Render, MongoDB, Redis, mail and object storage are independently provisioned; t
 
 ### Required credentials and service settings
 
-These are **later backend service credentials/settings, not a collection of AI API keys**. The implemented product does not call an LLM or other AI vendor. Do not send passwords, URIs, access keys or tokens in chat; enter them directly into your local ignored `.env` or Render's private environment-variable UI.
+These are **later backend service credentials/settings, not a collection of AI API keys**. Photo analysis and historical-evidence summaries call Gemini from the Celery worker only (`GEMINI_API_KEY`, `GEMINI_MODEL`; set them on the worker service, never on the API or Vercel). Do not send passwords, URIs, access keys or tokens in chat; enter them directly into your local ignored `.env` or Render's private environment-variable UI.
 
 | Variable(s) | Needed for | How to obtain/configure |
 |---|---|---|
@@ -199,7 +199,7 @@ These are **later backend service credentials/settings, not a collection of AI A
 
 The Blueprint does not define or attach a shared environment group. Enter the applicable values from this table directly in the Render API and worker environment settings; keep credentials out of Git. For local testing, use `.env.example` as the root `.env` template. Rotate any credentials that were accidentally committed or shared.
 
-No Vercel token, Render API key, browser API key, or separate session-signing key is needed for Git-connected deployments and the current application. Platform API tokens are only needed if you later automate deployments outside the provider's Git integration. Do not provide AI provider keys unless a future layer explicitly adds an AI-backed feature.
+No Vercel token, Render API key, browser API key, or separate session-signing key is needed for Git-connected deployments and the current application. Platform API tokens are only needed if you later automate deployments outside the provider's Git integration. The only AI-provider key is `GEMINI_API_KEY`, entered directly in the Render worker's private environment settings.
 
 ## Tests and verification
 

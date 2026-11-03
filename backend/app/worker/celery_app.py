@@ -5,10 +5,21 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+
+def celery_redis_url(url: str) -> str:
+    """Celery refuses rediss:// URLs that lack ssl_cert_reqs=CERT_REQUIRED.
+
+    Add it when absent so one REDIS_URL works for Celery and redis-py.
+    """
+    if not url.startswith("rediss://") or "ssl_cert_reqs=" in url:
+        return url
+    return f"{url}{'&' if '?' in url else '?'}ssl_cert_reqs=CERT_REQUIRED"
+
+
 celery_app = Celery(
     "realityloop",
-    broker=settings.redis_url,
-    backend=settings.redis_url,
+    broker=celery_redis_url(settings.redis_url),
+    backend=celery_redis_url(settings.redis_url),
     include=[
         "app.worker.sensor_imports",
         "app.worker.simulation_runs",

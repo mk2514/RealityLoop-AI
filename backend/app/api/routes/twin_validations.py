@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
+from kombu.exceptions import OperationalError
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.api.routes.auth import Principal, require_csrf, require_roles
@@ -197,7 +198,18 @@ def create_twin_validation(
         record["idempotency_key"] = payload.idempotency_key
     database.twin_validations.insert_one(record)
     from app.worker.twin_validations import execute_twin_validation
-    execute_twin_validation.delay(validation_id)
+    try:
+        execute_twin_validation.delay(validation_id)
+    except OperationalError as error:
+        database.twin_validations.update_one(
+            {"_id": record["_id"], "status": "queued"},
+            {"$set": {
+                "status": "failed",
+                "error": {"code": "queue_unavailable", "message": "The background worker could not be reached. Create the validation again."},
+                "updated_at": datetime.now(UTC),
+            }},
+        )
+        raise HTTPException(status_code=503, detail="The background worker is unavailable. The validation was recorded as failed.") from error
     return {"validation": _serialize(record)}
 
 

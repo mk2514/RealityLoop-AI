@@ -92,6 +92,7 @@ def _provider_call(settings, image_keys: list[str]) -> dict[str, Any]:
                     response_mime_type="application/json",
                     temperature=0,
                     max_output_tokens=4096,
+                    http_options=types.HttpOptions(timeout=settings.photo_job_timeout_seconds * 1000),
                 ),
             )
             text = result.text or "{}"
@@ -179,7 +180,7 @@ def process_historical_analysis_job(self, job_id: str) -> str:
     autoretry_for=(RuntimeError,),
     retry_backoff=True,
     retry_jitter=True,
-    retry_kwargs={"max_retries": 2},
+    retry_kwargs={"max_retries": get_settings().photo_job_max_retries},
 )
 def process_photo_analysis_job(self, job_id: str) -> str:
     settings = get_settings()
@@ -215,6 +216,8 @@ def process_photo_analysis_job(self, job_id: str) -> str:
             {"$set": {"status": "completed", "draft": draft, "error": None, "updated_at": datetime.now(UTC), "completed_at": datetime.now(UTC)}},
         )
     except RuntimeError as error:
+        if str(error) != "missing_key" and self.request.retries < settings.photo_job_max_retries:
+            raise  # let Celery autoretry (backoff) before recording a final outage
         code = str(error) if str(error) in {"missing_key", "provider_outage"} else "provider_outage"
         if code == "missing_key":
             status = "missing_key"

@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     scenario_solver_max_seconds: int = Field(default=30, gt=0, le=300)
     scenario_solver_max_candidates: int = Field(default=50, gt=0, le=1_000)
     gemini_api_key: str = Field(default="", validation_alias="GEMINI_API_KEY")
-    gemini_model: str = Field(default="gemini-2.0-flash", validation_alias="GEMINI_MODEL")
+    gemini_model: str = Field(default="gemini-3.5-flash", validation_alias="GEMINI_MODEL")
     photo_max_images: int = Field(default=6, gt=0, le=20)
     photo_max_image_bytes: int = Field(default=8 * 1024 * 1024, gt=0, le=25 * 1024 * 1024)
     photo_max_pixels: int = Field(default=12_000_000, gt=0, le=40_000_000)
