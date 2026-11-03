@@ -3,7 +3,7 @@ import * as echarts from "echarts/core";
 import { LineChart } from "echarts/charts";
 import { GridComponent, TooltipComponent, DataZoomComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
-import { ApiError, apiRequest } from "./api";
+import { ApiError, apiRequest, apiUrl } from "./api";
 
 echarts.use([LineChart, GridComponent, TooltipComponent, DataZoomComponent, CanvasRenderer]);
 
@@ -42,6 +42,15 @@ function parseCsv(text: string): { headers: string[]; rows: string[][]; error?: 
 
 function mean(values: number[]): number {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+function findingsFromLiveHistory(points: NumericPoint[]): Finding[] {
+  const headers = ["timestamp", ...Array.from(new Set(points.flatMap((point) => Object.keys(point.values))))];
+  const rows = points.map((point) => [
+    point.timestamp,
+    ...headers.slice(1).map((header) => String(point.values[header] ?? "")),
+  ]);
+  return findFindings(headers, rows).findings;
 }
 
 function findFindings(headers: string[], rows: string[][]): { points: NumericPoint[]; findings: Finding[] } {
@@ -104,6 +113,64 @@ export function Esp32AnomalyDashboard() {
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const liveHistoryRef = useRef<NumericPoint[]>([]);
+  const liveStreamRef = useRef<EventSource | null>(null);
+  const autoAnalyzeRef = useRef(false);
+  const busyRef = useRef(false);
+  const manualUploadRef = useRef(false);
+
+  useEffect(() => { busyRef.current = busy; }, [busy]);
+
+  useEffect(() => {
+    const stream = new EventSource(apiUrl("/live/stream"), { withCredentials: true });
+    liveStreamRef.current = stream;
+    stream.onopen = () => setStatus("LIVE STREAM CONNECTED");
+    stream.onerror = () => setStatus((current) => current.startsWith("LIVE") ? "LIVE STREAM DISCONNECTED" : current);
+    stream.onmessage = (event) => {
+      try {
+        if (manualUploadRef.current) return;
+        const reading = JSON.parse(event.data as string) as {
+          machine_id?: string;
+          sensor_id?: string;
+          quantity?: string;
+          unit?: string;
+          value?: number;
+          event_time_utc?: string;
+          received_at_utc?: string;
+        };
+        const value = Number(reading.value);
+        if (!Number.isFinite(value)) return;
+        const label = `${reading.quantity || reading.sensor_id || reading.machine_id || "measurement"}${reading.unit ? ` (${reading.unit})` : ""}`;
+        const timestamp = reading.event_time_utc || reading.received_at_utc || new Date().toISOString();
+        const history = [...liveHistoryRef.current.slice(-299), { timestamp, values: { [label]: value } }];
+        liveHistoryRef.current = history;
+        const headers = ["timestamp", ...Array.from(new Set(history.flatMap((point) => Object.keys(point.values))))];
+        const rows = history.map((point) => [point.timestamp, ...headers.slice(1).map((header) => String(point.values[header] ?? ""))]);
+        const result = findFindings(headers, rows);
+        setFileName("LIVE MQTT readings · automatic window");
+        setPoints(result.points);
+        setFindings(result.findings);
+        setError("");
+      } catch {
+        // Ignore malformed live frames; the stream remains connected.
+      }
+    };
+    const interval = window.setInterval(() => {
+      if (manualUploadRef.current || busyRef.current || liveHistoryRef.current.length < 20 || autoAnalyzeRef.current) return;
+      autoAnalyzeRef.current = true;
+      setStatus("AUTO-ANALYZING LIVE WINDOW");
+      void analyzeWithGemini({
+        dataset: "LIVE MQTT readings",
+        points: liveHistoryRef.current,
+        findings: findingsFromLiveHistory(liveHistoryRef.current),
+      }).finally(() => { autoAnalyzeRef.current = false; });
+    }, 30_000);
+    return () => {
+      window.clearInterval(interval);
+      stream.close();
+      liveStreamRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!chartRef.current || !points.length) return;
@@ -137,6 +204,8 @@ export function Esp32AnomalyDashboard() {
 
   async function loadCsv(selected: File | undefined) {
     if (!selected) return;
+    manualUploadRef.current = true;
+    if (liveStreamRef.current) liveStreamRef.current.close();
     setError("");
     setStatus("");
     setAnalysis(null);
@@ -156,31 +225,39 @@ export function Esp32AnomalyDashboard() {
     }
   }
 
-  async function analyzeWithGemini() {
-    if (!findings.length) return;
+  async function analyzeWithGemini(evidenceOverride?: { dataset: string; points: NumericPoint[]; findings: Finding[] }) {
+    const evidencePoints = evidenceOverride?.points ?? points;
+    const evidenceFindings = evidenceOverride?.findings ?? findings;
+    if (!evidenceFindings.length) return;
     setBusy(true);
     setError("");
     setStatus("ANALYZING WITH GEMINI");
+    let timeoutId: number | undefined;
     try {
       const summary = {
-        dataset: fileName || "ESP32 CSV upload",
+        dataset: evidenceOverride?.dataset ?? fileName ?? "ESP32 CSV upload",
         data_type: "observed",
-        row_count: points.length,
-        anomaly_findings: findings,
+        row_count: evidencePoints.length,
+        anomaly_findings: evidenceFindings,
         interpretation: "Numerical findings are pattern candidates from the first 70% compared with the final 30%; not confirmed fault labels.",
         cost: { time: "unknown", money: "unknown", downtime_hours: null, monetary_rates: null },
       };
+      const controller = new AbortController();
+      timeoutId = window.setTimeout(() => controller.abort(), 55_000);
       const result = await apiRequest<{ status: string; result: Analysis | null; error: { message?: string } | null }>(
         "/historical-replay/analysis",
-        { method: "POST", body: JSON.stringify({ evidence_summary: summary }) },
+        { method: "POST", body: JSON.stringify({ evidence_summary: summary }), signal: controller.signal },
       );
       setStatus(result.status.toUpperCase());
       setAnalysis(result.result);
       if (!result.result) setError(result.error?.message ?? "Gemini did not return an analysis.");
     } catch (reason) {
       setStatus("UNAVAILABLE");
-      setError(reason instanceof ApiError ? reason.message : "Gemini analysis is unavailable.");
+      setError(reason instanceof DOMException && reason.name === "AbortError"
+        ? "Gemini exceeded the 55-second browser limit. Evidence was not lost; retry with a smaller or narrower CSV."
+        : reason instanceof ApiError ? reason.message : "Gemini analysis is unavailable.");
     } finally {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
       setBusy(false);
     }
   }
@@ -196,6 +273,11 @@ export function Esp32AnomalyDashboard() {
         <input accept=".csv,text/csv" disabled={busy} onChange={(event) => void loadCsv(event.currentTarget.files?.[0])} type="file" />
       </label>
       {fileName && <p className="mt-3 text-sm text-ink/65">{fileName} · {points.length} numeric rows loaded</p>}
+      {fileName.startsWith("LIVE") && (
+        <p className="mt-2 font-mono text-xs tracking-wider text-ink/60">
+          LIVE MQTT WINDOW · AUTO-ANALYSIS EVERY 30 SECONDS · MINIMUM 20 READINGS
+        </p>
+      )}
       {findings.length > 0 && (
         <>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

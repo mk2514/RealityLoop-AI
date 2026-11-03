@@ -4,6 +4,10 @@
 
 ### Completed
 
+- Added automatic authenticated SSE ingestion for measured MQTT readings, with a bounded 300-reading live window.
+- Added automatic Gemini analysis every 30 seconds after at least 20 live readings.
+- Reduced Gemini request limits to a bounded 30-second provider timeout and a 1,024-token response.
+- Changed the maintained Gemini default to `gemini-2.5-flash`.
 - Added a workspace-dashboard CSV uploader for ESP32 data.
 - Added measured numeric-chart rendering, automatic timestamp detection and bounded CSV parsing.
 - Added deterministic first-70% versus final-30% pattern comparison for anomaly candidates.

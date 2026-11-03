@@ -450,13 +450,16 @@ def _call_gemini_historical_analysis(settings: Any, evidence_summary: dict[str, 
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
             temperature=0,
-            max_output_tokens=2048,
-            http_options=types.HttpOptions(timeout=20_000),
+            max_output_tokens=1024,
+            http_options=types.HttpOptions(timeout=30_000),
         ),
     )
     parsed = json.loads(result.text or "{}")
     if not isinstance(parsed, dict):
         raise json.JSONDecodeError("Gemini returned a non-object result", "", 0)
+    required = {"anomaly_prediction", "possible_causes", "effects", "cost", "suggestions", "alternatives"}
+    if not required.issubset(parsed):
+        raise json.JSONDecodeError("Gemini returned an incomplete result", "", 0)
     return parsed
 
 
