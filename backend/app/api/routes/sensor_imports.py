@@ -1,6 +1,7 @@
 import csv
 import hashlib
 import io
+import json
 import logging
 import math
 import re
@@ -14,7 +15,6 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from kombu.exceptions import OperationalError
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 from pymongo.errors import DuplicateKeyError
 
@@ -30,7 +30,6 @@ from app.telemetry.csv_format import DELIMITERS, detect_csv_dialect
 from app.telemetry.readings import as_utc
 from app.telemetry.storage import PrivateStorageUnavailable, get_storage_client
 from app.worker.sensor_imports import process_sensor_import
-from app.worker.photo_analysis import process_historical_analysis_job
 
 router = APIRouter(dependencies=[Depends(require_csrf)])
 logger = logging.getLogger(__name__)
@@ -430,7 +429,38 @@ def get_sensor_import(
     return {"import": _serialize_import(record)}
 
 
-@router.post("/historical-replay/analysis", status_code=202)
+def _call_gemini_historical_analysis(settings: Any, evidence_summary: dict[str, Any]) -> dict[str, Any]:
+    from google import genai
+    from google.genai import types
+
+    prompt = (
+        "Analyze only the supplied measured or derived historical evidence. Return only valid JSON with exactly "
+        "these keys: anomaly_prediction, possible_causes, effects, cost, suggestions, alternatives. "
+        "An anomaly_prediction is a candidate assessment, not a confirmed fault. Use evidence-backed wording and "
+        "list measured evidence references. possible_causes must be hypotheses ranked by evidence, not facts. "
+        "effects must distinguish measured effects from potential consequences. Cost.time and cost.money must be "
+        "unavailable unless verified downtime hours and monetary rates are explicitly supplied. suggestions must "
+        "identify practical data checks or safe read-only operational checks; alternatives must be alternatives "
+        "supported by the supplied evidence. Never invent readings, fault labels, savings, confidence percentages "
+        "or live measurements. Use 'unknown' where evidence is insufficient."
+    )
+    result = genai.Client(api_key=settings.gemini_api_key).models.generate_content(
+        model=settings.gemini_model,
+        contents=[prompt, json.dumps(evidence_summary, ensure_ascii=False)],
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            temperature=0,
+            max_output_tokens=2048,
+            http_options=types.HttpOptions(timeout=20_000),
+        ),
+    )
+    parsed = json.loads(result.text or "{}")
+    if not isinstance(parsed, dict):
+        raise json.JSONDecodeError("Gemini returned a non-object result", "", 0)
+    return parsed
+
+
+@router.post("/historical-replay/analysis", status_code=200)
 def create_historical_analysis(
     payload: HistoricalAnalysisRequest,
     principal: Principal = Depends(require_roles(*IMPORT_ROLES)),
@@ -449,15 +479,40 @@ def create_historical_analysis(
         "updated_at": now,
     }
     get_database().historical_analysis_jobs.insert_one(job)
-    try:
-        process_historical_analysis_job.delay(str(job_id))
-    except OperationalError:
-        get_database().historical_analysis_jobs.update_one(
-            {"_id": job_id, "organization_id": principal.organization_id},
-            {"$set": {"status": "broker_failure", "error": {"code": "broker_unavailable", "message": "The Redis/Celery broker could not accept the analysis job."}, "updated_at": datetime.now(UTC)}},
-        )
-        return {"job_id": str(job_id), "status": "broker_failure"}
-    return {"job_id": str(job_id), "status": "queued"}
+    settings = get_settings()
+    if not settings.gemini_api_key:
+        status = "missing_key"
+        error = {
+            "code": "missing_key",
+            "message": "Gemini is not configured on the API service.",
+        }
+        result = None
+    else:
+        try:
+            result = _call_gemini_historical_analysis(settings, payload.evidence_summary)
+            status = "completed"
+            error = None
+        except json.JSONDecodeError:
+            status = "invalid_provider_result"
+            error = {
+                "code": "invalid_provider_result",
+                "message": "The provider returned invalid JSON.",
+            }
+            result = None
+        except Exception as error_exception:
+            logger.warning("Historical Gemini analysis failed: %s", type(error_exception).__name__)
+            status = "provider_outage"
+            error = {
+                "code": "provider_outage",
+                "message": "Gemini timed out or was unavailable.",
+            }
+            result = None
+    get_database().historical_analysis_jobs.update_one(
+        {"_id": job_id, "organization_id": principal.organization_id},
+        {"$set": {"status": status, "result": result, "error": error, "updated_at": datetime.now(UTC),
+                  **({"completed_at": datetime.now(UTC)} if status == "completed" else {})}},
+    )
+    return {"job_id": str(job_id), "status": status, "result": result, "error": error}
 
 
 @router.get("/historical-replay/analysis/{job_id}")

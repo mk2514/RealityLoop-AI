@@ -238,7 +238,7 @@ export function MetroReplay({ machineId, machineName, canEdit }: {
   }
 
   async function requestAnalysis() {
-    setAnalysisStatus("QUEUEING");
+    setAnalysisStatus("ANALYZING");
     setError("");
     try {
       const summary = {
@@ -255,27 +255,14 @@ export function MetroReplay({ machineId, machineName, canEdit }: {
           selectedRows.filter((row) => row.COMP === state).length,
         ])),
       };
-      const queued = await apiRequest<{ job_id: string; status: string }>("/historical-replay/analysis", {
+      const result = await apiRequest<{ job_id: string; status: string; result: Record<string, unknown> | null; error: { message: string } | null }>("/historical-replay/analysis", {
         method: "POST",
         body: JSON.stringify({ evidence_summary: summary }),
       });
-      setAnalysisStatus(queued.status.toUpperCase());
-      setAnalysisJobId(queued.job_id);
-      if (queued.status !== "queued") return;
-      for (let attempt = 0; attempt < 6; attempt += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 1000));
-        const result = await apiRequest<{ status: string; result: Record<string, unknown> | null; error: { message: string } | null }>(
-          `/historical-replay/analysis/${encodeURIComponent(queued.job_id)}`,
-        );
-        if (result.status !== "queued" && result.status !== "processing") {
-          setAnalysisStatus(result.status.toUpperCase());
-          setAnalysis(result.result);
-          if (!result.result && result.error) setError(result.error.message);
-          return;
-        }
-      }
-      setAnalysisStatus("TIMEOUT");
-      setError("Gemini analysis timed out; the numerical replay remains available.");
+      setAnalysisStatus(result.status.toUpperCase());
+      setAnalysisJobId(result.job_id);
+      setAnalysis(result.result);
+      if (!result.result && result.error) setError(result.error.message);
     } catch (reason) {
       setAnalysisStatus("UNAVAILABLE");
       setError(reason instanceof ApiError ? reason.message : "Gemini analysis is unavailable; numerical evidence remains visible.");
@@ -320,7 +307,7 @@ export function MetroReplay({ machineId, machineName, canEdit }: {
             <p className="mt-2 text-sm">TP3 10-second next-record baseline trained on the first 70%; held-out observed mean {observedMean?.toFixed(3) ?? "unavailable"} bar, last-value baseline {lastValueBaseline?.toFixed(3) ?? "unavailable"} bar, absolute error {lastError?.toFixed(3) ?? "unavailable"} bar.</p>
             <p className="mt-2 text-sm text-ink/65">Held-out window: {heldStart} to {heldEnd} · {tp3.length} readings. COMP=1 is no air intake; it is not evidence that the motor is running.</p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <button className="secondary-button" disabled={analysisStatus === "QUEUEING" || analysisStatus === "PROCESSING"} onClick={() => void requestAnalysis()} type="button">ANALYZE EVIDENCE WITH GEMINI</button>
+              <button className="secondary-button" disabled={analysisStatus === "ANALYZING"} onClick={() => void requestAnalysis()} type="button">{analysisStatus === "ANALYZING" ? "ANALYZING…" : "ANALYZE EVIDENCE WITH GEMINI"}</button>
               {analysisStatus && <span className="self-center text-sm text-ink/65">{analysisStatus}</span>}
               {analysisJobId && ["QUEUED", "PROCESSING", "TIMEOUT"].includes(analysisStatus) && (
                 <button className="secondary-button" onClick={() => void refreshAnalysis()} type="button">REFRESH PENDING ANALYSIS</button>

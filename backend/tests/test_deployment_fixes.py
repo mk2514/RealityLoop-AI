@@ -52,18 +52,16 @@ def _blueprint() -> str:
     return (ROOT / "render.yaml").read_text()
 
 
-def test_blueprint_uses_valid_worker_plan_and_no_dashboard_env_group() -> None:
+def test_blueprint_has_no_worker_or_dashboard_env_group() -> None:
     text = _blueprint()
     assert "fromGroup" not in text
-    worker = text.split("type: worker", 1)[1]
-    assert re.search(r"plan:\s*starter", worker.split("envVars:", 1)[0])
-    assert "plan: free" not in worker.split("envVars:", 1)[0]
+    assert "type: worker" not in text
 
 
-def test_gemini_key_is_declared_only_on_the_worker_service() -> None:
-    api, worker = _blueprint().split("type: worker", 1)
-    assert "GEMINI_API_KEY" not in api
-    assert "GEMINI_API_KEY" in worker
+def test_gemini_key_is_declared_on_the_api_service() -> None:
+    blueprint = _blueprint()
+    assert "GEMINI_API_KEY" in blueprint
+    assert "sync: false" in blueprint
 
 
 def test_pyproject_dependencies_match_requirements_txt() -> None:

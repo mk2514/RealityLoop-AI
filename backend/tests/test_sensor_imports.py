@@ -945,11 +945,6 @@ def test_historical_analysis_missing_key_and_tenant_scope(import_environment, mo
     org_id = import_environment["org_id"]
     user_id = import_environment["user_id"]
     principal = _principal(user_id, org_id)
-    monkeypatch.setattr(
-        sensor_imports.process_historical_analysis_job,
-        "delay",
-        lambda job_id: None,
-    )
     payload = sensor_imports.HistoricalAnalysisRequest(
         evidence_summary={
             "dataset": "MetroPT3 local source subset",
@@ -958,14 +953,49 @@ def test_historical_analysis_missing_key_and_tenant_scope(import_environment, mo
         }
     )
     result = sensor_imports.create_historical_analysis(payload, principal=principal)
-    assert result["status"] == "queued"
+    assert result["status"] == "missing_key"
 
     job = database.historical_analysis_jobs.find_one({"organization_id": org_id})
     assert job is not None
     visible = sensor_imports.get_historical_analysis(str(job["_id"]), principal=principal)
-    assert visible["status"] == "queued"
+    assert visible["status"] == "missing_key"
 
     other_org = _principal(ObjectId(), ObjectId())
     with pytest.raises(Exception) as exc:
         sensor_imports.get_historical_analysis(str(job["_id"]), principal=other_org)
     assert getattr(exc.value, "status_code", None) == 404
+
+
+def test_historical_analysis_runs_gemini_without_worker(import_environment, monkeypatch) -> None:
+    database = import_environment["database"]
+    org_id = import_environment["org_id"]
+    principal = _principal(import_environment["user_id"], org_id)
+    monkeypatch.setattr(
+        sensor_imports,
+        "get_settings",
+        lambda: SimpleNamespace(gemini_api_key="test-key", gemini_model="test-model"),
+    )
+    expected = {
+        "anomaly_prediction": {"assessment": "anomaly_candidate", "evidence": ["Test evidence"]},
+        "possible_causes": [{"hypothesis": "Inspect data quality", "evidence": "Test evidence"}],
+        "effects": {"measured": [], "potential": []},
+        "cost": {"status": "unavailable", "time": "unknown", "money": "unknown"},
+        "suggestions": ["Verify the source timestamp and sensor mapping."],
+        "alternatives": ["No confirmed alternative without additional evidence."],
+    }
+    monkeypatch.setattr(
+        sensor_imports,
+        "_call_gemini_historical_analysis",
+        lambda settings, evidence: expected,
+    )
+
+    payload = sensor_imports.HistoricalAnalysisRequest(
+        evidence_summary={"sample_count": 218, "heldout_absolute_error_bar": 0.4}
+    )
+    result = sensor_imports.create_historical_analysis(payload, principal=principal)
+
+    assert result["status"] == "completed"
+    assert result["result"] == expected
+    job = database.historical_analysis_jobs.find_one({"organization_id": org_id})
+    assert job["status"] == "completed"
+    assert job["result"] == expected

@@ -183,7 +183,7 @@ Render, MongoDB, Redis, mail and object storage are independently provisioned; t
 
 ### Required credentials and service settings
 
-These are **later backend service credentials/settings, not a collection of AI API keys**. Photo analysis and historical-evidence summaries call Gemini from the Celery worker only (`GEMINI_API_KEY`, `GEMINI_MODEL`; set them on the worker service, never on the API or Vercel). Do not send passwords, URIs, access keys or tokens in chat; enter them directly into your local ignored `.env` or Render's private environment-variable UI.
+These are backend service credentials/settings. Historical-evidence summaries call Gemini synchronously from the FastAPI service when `GEMINI_API_KEY` is configured. Set it only in Render's private API environment and never in Vercel, browser code, Git, or `.env.example`. Worker-only Redis and storage infrastructure are not required for historical CSV analysis. Do not send passwords, URIs, access keys or tokens in chat; enter them directly into your local ignored `.env` or Render's private environment-variable UI.
 
 | Variable(s) | Needed for | How to obtain/configure |
 |---|---|---|
