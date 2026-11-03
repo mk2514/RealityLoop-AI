@@ -6,6 +6,7 @@ import { navigate } from "./router";
 import faviconUrl from "./landing/assets/favicon.svg";
 import { SimulationRuns } from "./SimulationRuns";
 import { PresentationTwin } from "./PresentationTwin";
+import { Esp32AnomalyDashboard } from "./Esp32AnomalyDashboard";
 
 const DashboardCharts = lazy(() =>
   import("./DashboardCharts").then((module) => ({ default: module.DashboardCharts })),
@@ -412,6 +413,7 @@ function DashboardPage() {
             <Feedback error={form.error} message="" />
 
             <div className="mt-8 grid gap-8">
+              <Esp32AnomalyDashboard />
               <AssetRegistry
                 onChanged={refreshDashboard}
                 onSignOut={logout}

@@ -1,5 +1,20 @@
 # Build progress
 
+## ESP32 CSV pattern and Gemini anomaly dashboard
+
+### Completed
+
+- Added a workspace-dashboard CSV uploader for ESP32 data.
+- Added measured numeric-chart rendering, automatic timestamp detection and bounded CSV parsing.
+- Added deterministic first-70% versus final-30% pattern comparison for anomaly candidates.
+- Added Gemini analysis of bounded evidence for prediction, causes, cost, effects, suggestions and alternatives.
+- Added explicit unavailable and missing-provider states; no readings or costs are fabricated.
+
+### Verification
+
+- Frontend `npm test` passed: production build, 3 Vitest files with 8 tests, and model/CSV checks.
+- Backend focused sensor/Gemini suite: `backend/tests/test_sensor_imports.py` passed 15 tests.
+
 ## Presentation conveyor twin placement
 
 ### Completed
