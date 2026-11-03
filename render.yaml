@@ -10,24 +10,14 @@ services:
     envVars:
       - key: ENVIRONMENT
         value: production
+      - key: MONGO_ONLY_INFRA
+        value: "true"
       - key: COOKIE_SECURE
         value: "true"
       - key: MONGO_URI
         sync: false
       - key: MONGO_DATABASE
         value: realityloop
-      - key: REDIS_URL
-        sync: false
-      - key: S3_BUCKET
-        sync: false
-      - key: S3_REGION
-        sync: false
-      - key: S3_ENDPOINT_URL
-        sync: false
-      - key: S3_ACCESS_KEY_ID
-        sync: false
-      - key: S3_SECRET_ACCESS_KEY
-        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
@@ -44,51 +34,3 @@ services:
         sync: false
       - key: FRONTEND_ORIGINS
         sync: false
-  - type: worker
-    name: realityloop-worker
-    runtime: python
-    rootDir: backend
-    plan: starter         # Render has no free background-worker plan
-    buildCommand: pip install -r requirements.lock
-    startCommand: python -m celery -A app.worker.celery_app:celery_app worker --loglevel=INFO --concurrency=2
-    envVars:
-      - key: ENVIRONMENT
-        value: production
-      - key: COOKIE_SECURE
-        value: "true"
-      - key: MONGO_URI
-        sync: false
-      - key: MONGO_DATABASE
-        value: realityloop
-      - key: REDIS_URL
-        sync: false
-      - key: S3_BUCKET
-        sync: false
-      - key: S3_REGION
-        sync: false
-      - key: S3_ENDPOINT_URL
-        sync: false
-      - key: S3_ACCESS_KEY_ID
-        sync: false
-      - key: S3_SECRET_ACCESS_KEY
-        sync: false
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
-        sync: false
-      - key: SMTP_USERNAME
-        sync: false
-      - key: SMTP_PASSWORD
-        sync: false
-      - key: SMTP_SENDER
-        sync: false
-      - key: SMTP_STARTTLS
-        value: "true"
-      - key: PUBLIC_APP_URL
-        sync: false
-      - key: FRONTEND_ORIGINS
-        sync: false
-      - key: GEMINI_API_KEY   # worker only; never set on the API service
-        sync: false
-      - key: GEMINI_MODEL
-        value: gemini-3.5-flash

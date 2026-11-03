@@ -101,11 +101,7 @@ def check_smtp() -> bool:
 
 @router.get("/ready")
 def readiness(request: Request, response: Response) -> dict[str, object]:
-    mongodb_ready = check_database()
-    mongodb_error_type = None
-    mongodb_error_code = None
-    if not mongodb_ready:
-        _, mongodb_error_type, mongodb_error_code = check_database_detail()
+    mongodb_ready, mongodb_error_type, mongodb_error_code = check_database_detail()
     dependencies = {
         "mongodb": mongodb_ready,
         "smtp": check_smtp(),

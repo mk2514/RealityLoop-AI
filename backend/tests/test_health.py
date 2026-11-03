@@ -26,7 +26,7 @@ def test_valid_request_id_is_propagated() -> None:
 
 
 def test_readiness_reports_each_dependency(monkeypatch) -> None:
-    monkeypatch.setattr(health, "check_database", lambda: True)
+    monkeypatch.setattr(health, "check_database_detail", lambda: (True, None, None))
     monkeypatch.setattr(health, "check_redis", lambda: True)
     monkeypatch.setattr(health, "check_object_storage", lambda: True)
     monkeypatch.setattr(health, "check_smtp", lambda: True)
@@ -44,7 +44,7 @@ def test_readiness_reports_each_dependency(monkeypatch) -> None:
 
 
 def test_readiness_is_unavailable_when_a_dependency_is_down(monkeypatch) -> None:
-    monkeypatch.setattr(health, "check_database", lambda: True)
+    monkeypatch.setattr(health, "check_database_detail", lambda: (True, None, None))
     monkeypatch.setattr(health, "check_redis", lambda: False)
     monkeypatch.setattr(health, "check_object_storage", lambda: True)
     monkeypatch.setattr(health, "check_smtp", lambda: True)
@@ -57,7 +57,7 @@ def test_readiness_is_unavailable_when_a_dependency_is_down(monkeypatch) -> None
 
 
 def test_readiness_is_unavailable_when_smtp_is_down(monkeypatch) -> None:
-    monkeypatch.setattr(health, "check_database", lambda: True)
+    monkeypatch.setattr(health, "check_database_detail", lambda: (True, None, None))
     monkeypatch.setattr(health, "check_redis", lambda: True)
     monkeypatch.setattr(health, "check_object_storage", lambda: True)
     monkeypatch.setattr(health, "check_smtp", lambda: False)
@@ -66,6 +66,28 @@ def test_readiness_is_unavailable_when_smtp_is_down(monkeypatch) -> None:
 
     assert response.status_code == 503
     assert response.json()["dependencies"]["smtp"] == "unavailable"
+
+
+def test_readiness_reports_safe_mongodb_error_details(monkeypatch) -> None:
+    monkeypatch.setattr(
+        health,
+        "check_database_detail",
+        lambda: (False, "OperationFailure", 18),
+    )
+    monkeypatch.setattr(health, "check_smtp", lambda: True)
+    monkeypatch.setattr(
+        health,
+        "get_settings",
+        lambda: Settings(_env_file=None, mongo_only_infra=True),
+    )
+
+    response = client.get("/api/v1/health/ready")
+
+    assert response.status_code == 503
+    assert response.json()["mongodb_error"] == {
+        "type": "OperationFailure",
+        "code": 18,
+    }
 
 
 def test_object_storage_readiness_checks_configured_bucket(monkeypatch) -> None:
